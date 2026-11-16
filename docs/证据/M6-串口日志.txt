@@ -1,0 +1,97 @@
+K
+==================================================
+  LumiKernel 0.7.0  (milestone M6)
+  monolithic kernel, per-process vm + elf64 + ring3
+  acpi/smp + ext2 + per-process addrspace + cr3 switch
+==================================================
+  凝光内核 · 宏内核 · x86_64 · ACPI/MADT · APIC/IOAPIC · ring3 · 系统调用 · 抢占
+[ OK ] idt:  vectors=48 idtr=0xffffffff801dc398 limit=4095
+[ OK ] gdt:  base=0xffffffff801dbf08 limit=71 tr=0x38
+       8 项：内核代码/数据 + 用户代码/数据(DPL3) + TSS；rsp0=0xffffffff80125000 ist1=0xffffffff80121000
+[ OK ] ist:  df_ist=1 syscall_dpl=3 tr=0x38
+       #DF 挂在 IST1 上（栈坏了也能打出报告）；int 0x80 的门是 DPL=3，ring3 才进得来
+[ OK ] e820:  entries=8 usable=511MiB
+       物理内存地图（串口完整版）:
+         0x0000000000 + 0x000009fc00  type=1 可用
+         0x000009fc00 + 0x0000000400  type=2 保留
+         0x00000f0000 + 0x0000010000  type=2 保留
+         0x0000100000 + 0x001fef0000  type=1 可用
+         0x001fff0000 + 0x0000010000  type=3 ACPI 可回收
+         0x00fec00000 + 0x0000001000  type=2 保留
+         0x00fee00000 + 0x0000001000  type=2 保留
+         0x00fffc0000 + 0x0000040000  type=2 保留
+[ OK ] frames:  total=511MiB free=510MiB frames=130578 e820=511MiB
+[ OK ] reserve: kernel=0x100000..0x1de000 first_free=0x1de000
+[ OK ] heap:  base=0x1de000 size=4096KiB used=0B audit=ok
+       LAPIC 已使能：mmio=0xffffa00000200000 id=0 目标核数=4 定时器 GSI=0
+[ OK ] acpi:  cpus=4 apic_id=0 timer_gsi=0
+       MADT @0x1fff0240：4 个 CPU，LAPIC @0xfee00000，ISA IRQ0 路由到 GSI 0，中断已切到 APIC
+[ OK ] ioapic-irq: gsi=2 ticks=20 pit_div=11931
+       PIT 的中断经 I/O APIC 重定向（GSI 2）后到达：8259A 已经被彻底绕开
+[ OK ] apic-timer: hz=100 init=9999971 ticks=20
+       每核自己的定时器跑起来了（初值 9999971 由 RTC 秒边界校准）—— 这才是多核时间片的基础
+       校准基准 = RTC 秒边界：APIC 定时器 9999971 counts/10ms，10ms = 34921077 个 TSC tick
+       校准那一秒里原 tick 源（PIT 经 I/O APIC）实际打了 101 次
+[ OK ] pic:  fully masked (0xff 0xff)
+[ OK ] high-half:  rip=0xffffffff80109bb6
+[ OK ] paging:  cr0.pg=1 cr4.pae=1 cr3=0x125000
+[ OK ] paging-test: pml4=1 page pattern=0x4c756d694b65726e frames=back
+[ OK ] frames-stress: n=512 unique=1 returned=129551
+[ OK ] exception: de=caught bp=caught hits=2
+[ OK ] guard-page: addr=0xffffa00000005123 pf=p0 read+write caught frames=back
+[ OK ] slab:  objs=600 pages=123 order=shuffled audit=ok leak=0
+[ OK ] task:  self=task0 state=running quantum=1ticks
+       当前这段代码本身变成了 0 号任务，后面创建的线程与它同场竞争
+hello from ring3
+[ OK ] ring3:  exit=7 syscalls_from_cpl3=2 wrote=17B
+       用户程序在 CPL=3 跑完：int 0x80 进来两次，写出 17 字节，最后 exit(7)
+[ OK ] kthreads: 3 threads x 8000000 iters done, switches=16 preempted=13
+       三个内核线程都没有主动让出 CPU，能跑完说明是时钟中断把它们切开的
+[ OK ] preempt: preempted=16 switches=20 exited=4 ticked=1
+       时间片耗尽强制切换 16 次（三个线程都没主动让出）；每个任务都被记过 tick —— 抢占是真的
+       AP#1 apic=1 stack=0xffff8000005f5000 online=true stage=8 wakeups=1
+       AP#2 apic=2 stack=0xffff8000005f9000 online=true stage=8 wakeups=1
+       AP#3 apic=3 stack=0xffff8000005fd000 online=true stage=8 wakeups=1
+[ OK ] smp: online=4/4 started=3 bsp_apic=0
+       已上线：cpu0=apic0 cpu1=apic1 cpu2=apic2 cpu3=apic3
+       cpu1 独立内核栈 top=0xffff8000005f5000
+       cpu2 独立内核栈 top=0xffff8000005f9000
+       cpu3 独立内核栈 top=0xffff8000005fd000
+[ OK ] parallel: cores=4 min_work=42471088 bsp_work=379486208
+       200 ms 窗口内 4 个核同时执行：每核自己数循环次数，最少 42471088 次（BSP 379486208 次，含 rdtsc 开销）
+       静息态实测 APIC 定时器：89 Hz（配置 100 Hz；样本 18 tick / 698421642 TSC）
+[ OK ] smp-timer: cpus=4 all_ticking=1 ticks=[20..21]
+       4 个核各自被自己的 LAPIC 定时器打断（最少 20 次、最多 21 次）—— 每核独立时基
+[ OK ] ipi:  broadcast_vec=241 acked=3/3
+       向量 241 广播出去，3 个 AP 全部应答 —— 多核调度的 reschedule IPI 通道打通了
+[ OK ] ata:  sectors=8192 blocks=4096KiB magic=0xef53
+       ATA PIO 读到 8192 个 512B 扇区（4096 KiB），超级块魔数 0xef53 对上了
+       根目录内容：bin hello.txt
+[ OK ] ext2:  blocks=4096 root_entries=4 hello.txt=76B
+       ext2 挂载成功：根目录 4 项，第一个条目 "bin"；/hello.txt = 76 字节
+[ OK ] file:  open/read/close ok bytes=76
+       读到 76 字节，开头是：this line came from an e
+       close 之后打开数为 0（fd 表没有泄漏）
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+[ OK ] elf:  segs=1 entry=0x400000 pages=1 mem=20KiB exit=9 calls=6 out_b=96
+       从磁盘上的 /bin/hello 装载：1 段 / 1 页，入口 0x400000，退出码 9，ring3 系统调用 6 次，输出 96 字节
+[ OK ] reject: missing=err badelf=err dir=err badfd=err
+       坏输入都被挡在门口：不存在的路径、假 ELF、打开目录、关无效 fd —— 内核没有因此崩
+[ OK ] addrspace: a=0x60c000 b=0x61d000 kern=0x125000 same_entry=0x400000
+       同一个 ELF 装成两个进程：页表 0x60c000 与 0x61d000 互不相同，也都不是内核的 0x125000；入口地址相同（0x400000）但物理页不同
+p1 ok
+p0 ok
+[ OK ] 2proc: exit=Some(9)/Some(9) switches=5 ticks=1/1 out="p1 ok.p0 ok."
+       两个进程各跑各的：都报 ok（同一个 0x600000 地址各加 300 次，互不干扰）；窗口内切换 5 次（它们真的在时间片上交叉）
+[ OK ] elf-guard: bad_entry=err bad_seg=err
+       指向内核地址的 ELF（入口越界 / 段越界）都被装载器拒绝 —— 用户程序不能给自己装一页内核
+--------------------------------------------------
+M6 self-test 34/34 passed
+[LIVE] kernel healthy: 4 cpus, 2 processes, isolated address spaces
+M6 全部通过：4 个核在线，两个进程各有独立地址空间、同一虚拟地址互不干扰
+下一步 M7：等待队列（真阻塞）+ 管道 + 块缓存 + LumiFS 日志 + PCIe/virtio
+--------------------------------------------------
+累计 tick = 184（≈1840 ms） 切换 = 27 系统调用 = 14（来自 CPL3 14）
+非定时器中断 0 次（应为 0）；当前任务 user=false

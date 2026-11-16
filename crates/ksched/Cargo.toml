@@ -1,0 +1,10 @@
+[package]
+name = "ksched"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "ksched"
+path = "src/lib.rs"
+
+[dependencies]

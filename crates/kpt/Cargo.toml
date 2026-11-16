@@ -1,0 +1,11 @@
+[package]
+name = "kpt"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "kpt"
+path = "src/lib.rs"
+
+[dependencies]
+kvm = { path = "../kvm" }

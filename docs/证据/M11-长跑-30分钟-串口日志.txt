@@ -1,0 +1,2105 @@
+[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[LumiEFI] UEFI loader up
+[LumiEFI] kernel blob found
+[LumiEFI] kernel copied to 0x100000
+[LumiEFI] kernel[0..8]=
+53b003f8ba66fcfa
+[LumiEFI] blob[0..8]=
+53b003f8ba66fcfa
+[LumiEFI] e820 entries=
+0000000000000013
+[LumiEFI] readback@0x9000=
+00ef000040000013
+[LumiEFI] dsize=
+0000000000000030
+ACSK
+==================================================
+  LumiKernel 1.2.0  (milestone M11)
+  UEFI + BIOS dual boot, own AHCI(SATA) driver, linux abi
+  fault injection + fuzz + soak regression, 57 self-checks
+==================================================
+  凝光内核 · 宏内核 · x86_64 · ACPI/MADT · APIC/IOAPIC · ring3 · 系统调用 · 抢占
+[ OK ] idt:  vectors=48 idtr=0xffffffff80248328 limit=4095
+[ OK ] gdt:  base=0xffffffff80247e80 limit=71 tr=0x38
+       8 项：内核代码/数据 + 用户代码/数据(DPL3) + TSS；rsp0=0xffffffff8014f000 ist1=0xffffffff8014b000
+[ OK ] ist:  df_ist=1 syscall_dpl=3 tr=0x38
+       #DF 挂在 IST1 上（栈坏了也能打出报告）；int 0x80 的门是 DPL=3，ring3 才进得来
+[ OK ] syscall: efer=0xd01 lstar=0xffffffff80100194 fmask=0x47700
+       `syscall` 指令通道就绪（EFER.SCE=1、LSTAR 指向入口、FMASK 清掉 IF/DF/TF）：musl 静态程序只认这条路，`int 0x80` 保留给自检
+[ OK ] e820:  entries=19 usable=975MiB boot=uefi
+       物理内存地图（串口完整版）:
+         0x0000000000 + 0x0000087000  type=1 可用
+         0x0000087000 + 0x0000001000  type=2 保留
+         0x0000088000 + 0x0000018000  type=1 可用
+         0x0000100000 + 0x0000047000  type=2 保留
+         0x0000147000 + 0x003ba95000  type=1 可用
+         0x003bbdc000 + 0x0000020000  type=2 保留
+         0x003bbfc000 + 0x000134a000  type=1 可用
+         0x003cf46000 + 0x0000056000  type=2 保留
+         0x003cf9c000 + 0x0000049000  type=1 可用
+         0x003cfe5000 + 0x0000021000  type=2 保留
+         0x003d006000 + 0x0000023000  type=1 可用
+         0x003d029000 + 0x0001944000  type=2 保留
+         0x003e96d000 + 0x0000012000  type=3 ACPI 可回收
+         0x003e97f000 + 0x0000080000  type=4 ACPI NVS
+         0x003e9ff000 + 0x0000601000  type=2 保留
+         0x003f000000 + 0x00000c0000  type=1 可用
+         0x003f0c0000 + 0x0000061000  type=2 保留
+         0x003f121000 + 0x0000002000  type=4 ACPI NVS
+         0x003f123000 + 0x0000ecd000  type=2 保留
+[ OK ] frames:  total=1008MiB free=974MiB frames=249346 e820=975MiB
+[ OK ] reserve: kernel=0x100000..0x250000 first_free=0x250000
+[ OK ] heap:  base=0x250000 size=4096KiB used=0B audit=ok
+       LAPIC 已使能：mmio=0xffffa00000200000 id=0 目标核数=4 定时器 GSI=0
+[ OK ] acpi:  cpus=4 apic_id=0 timer_gsi=0
+       MADT @0x3fff0240：4 个 CPU，LAPIC @0xfee00000，ISA IRQ0 路由到 GSI 0，中断已切到 APIC
+[ OK ] ioapic-irq: gsi=2 ticks=20 pit_div=11931
+       PIT 的中断经 I/O APIC 重定向（GSI 2）后到达：8259A 已经被彻底绕开
+[ OK ] apic-timer: hz=100 init=9998284 ticks=20
+       每核自己的定时器跑起来了（初值 9998284 由 RTC 秒边界校准）—— 这才是多核时间片的基础
+       校准基准 = RTC 秒边界：APIC 定时器 9998284 counts/10ms，10ms = 35027763 个 TSC tick
+       校准那一秒里原 tick 源（PIT 经 I/O APIC）实际打了 101 次
+[ OK ] pic:  fully masked (0xff 0xff)
+[ OK ] high-half:  rip=0xffffffff8011cfc4
+[ OK ] paging:  cr0.pg=1 cr4.pae=1 cr3=0x14f000
+[ OK ] paging-test: pml4=1 page pattern=0x4c756d694b65726e frames=back
+[ OK ] frames-stress: n=512 unique=1 returned=248319
+[ OK ] exception: de=caught bp=caught hits=2
+[ OK ] guard-page: addr=0xffffa00000005123 pf=p0 read+write caught frames=back
+[ OK ] slab:  objs=600 pages=123 order=shuffled audit=ok leak=0
+[ OK ] task:  self=task0 state=running quantum=1ticks
+       当前这段代码本身变成了 0 号任务，后面创建的线程与它同场竞争
+hello from ring3
+[ OK ] ring3:  exit=7 syscalls_from_cpl3=2 wrote=17B
+       用户程序在 CPL=3 跑完：int 0x80 进来两次，写出 17 字节，最后 exit(7)
+[ OK ] kthreads: 3 threads x 8000000 iters done, switches=17 preempted=14
+       三个内核线程都没有主动让出 CPU，能跑完说明是时钟中断把它们切开的
+[ OK ] preempt: preempted=15 switches=19 exited=4 ticked=1
+       时间片耗尽强制切换 15 次（三个线程都没主动让出）；每个任务都被记过 tick —— 抢占是真的
+       AP#1 apic=1 stack=0xffff800000667000 online=true stage=8 wakeups=1
+       AP#2 apic=2 stack=0xffff80000066b000 online=true stage=8 wakeups=1
+       AP#3 apic=3 stack=0xffff80000066f000 online=true stage=8 wakeups=1
+[ OK ] smp: online=4/4 started=3 bsp_apic=0
+       已上线：cpu0=apic0 cpu1=apic1 cpu2=apic2 cpu3=apic3
+       cpu1 独立内核栈 top=0xffff800000667000
+       cpu2 独立内核栈 top=0xffff80000066b000
+       cpu3 独立内核栈 top=0xffff80000066f000
+[ OK ] parallel: cores=4 min_work=42248711 bsp_work=376951808
+       200 ms 窗口内 4 个核同时执行：每核自己数循环次数，最少 42248711 次（BSP 376951808 次，含 rdtsc 开销）
+       静息态实测 APIC 定时器：94 Hz（配置 100 Hz；样本 19 tick / 700555373 TSC）
+[ OK ] smp-timer: cpus=4 all_ticking=1 ticks=[22..24]
+       4 个核各自被自己的 LAPIC 定时器打断（最少 22 次、最多 24 次）—— 每核独立时基
+[ OK ] ipi:  broadcast_vec=241 acked=3/3
+       向量 241 广播出去，3 个 AP 全部应答 —— 多核调度的 reschedule IPI 通道打通了
+       AHCI 控制器就位：ABAR=0x81404000，1 个端口在线（系统盘 131072 扇区，数据盘 0 扇区）
+       从盘（数据盘）：131072 扇区 = 65536 KiB
+[ OK ] disk: sectors=131072 blocks=65536KiB transport=ahci magic=0xef53
+       经 ahci 读到 131072 个 512B 扇区（65536 KiB），超级块魔数 0xef53 对上了
+       根目录内容：bin hello.txt
+[ OK ] ext2:  blocks=65536 root_entries=4 hello.txt=76B
+       ext2 挂载成功：根目录 4 项，第一个条目 "bin"；/hello.txt = 76 字节
+[ OK ] file:  open/read/close ok bytes=76
+       读到 76 字节，开头是：this line came from an e
+       close 之后打开数为 0（fd 表没有泄漏）
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+[ OK ] elf:  segs=1 entry=0x400000 pages=1 mem=20KiB exit=9 calls=6 out_b=96
+       从磁盘上的 /bin/hello 装载：1 段 / 1 页，入口 0x400000，退出码 9，ring3 系统调用 6 次，输出 96 字节
+[ OK ] reject: missing=err badelf=err dir=err badfd=err
+       坏输入都被挡在门口：不存在的路径、假 ELF、打开目录、关无效 fd —— 内核没有因此崩
+[ OK ] addrspace: a=0x684000 b=0x695000 kern=0x14f000 same_entry=0x400000
+       同一个 ELF 装成两个进程：页表 0x684000 与 0x695000 互不相同，也都不是内核的 0x14f000；入口地址相同（0x400000）但物理页不同
+p0 ok
+p1 ok
+[ OK ] 2proc: exit=Some(9)/Some(9) switches=6 ticks=2/1 out="p0 ok.p1 ok."
+       两个进程各跑各的：都报 ok（同一个 0x600000 地址各加 300 次，互不干扰）；窗口内切换 6 次（它们真的在时间片上交叉）
+[ OK ] elf-guard: bad_entry=err bad_seg=err
+       指向内核地址的 ELF（入口越界 / 段越界）都被装载器拒绝 —— 用户程序不能给自己装一页内核
+[ OK ] fd-table: peer_fd=3 my_fd=3 same_file_bytes=12
+       两个任务各自打开同一个文件，**各自的 fd 都从 3 开始**；我在自己的表里读到 12 字节（偏移互不影响）
+[ OK ] pipe: blocked=2 frozen_ticks=1 write=4 read=4 word=0x70696e67 wait_code=0
+       读者与等待者都真的睡下了（ticks 停在 0 不涨），写入 4 字节后两者依次被唤醒；等待者拿到的退出码是 0
+       本次新增阻塞 1 次 / 唤醒 2 次；累计创建管道 1 个
+[ OK ] pipe-eof: order=1 epipe=1 eof=1 fds_closed=1
+       走 fd 层：写端全关 → 读端先读完缓冲再拿到 EOF（0）；读端全关 → 写端拿到 EPIPE；关完全部 fd 表回到空
+p1 ok
+p0 ok
+p1 ok
+[ OK ] reap: runs=3 pages=18 tables=21 frames 248098 -> 248098
+       跑完并回收 3 个进程：退掉 18 个数据页 + 21 个页表页，可用帧数精确回到起点（248098）—— 进程退出不再漏内存（累计回收 4 个）
+       PCI：扫了 1 条总线，发现 7 个设备，其中存储控制器 1、桥 0
+         00:00.0 8086:1237 桥 prog_if=0x00 BAR0=0x0 (MEM)
+         00:01.0 8086:7000 桥 prog_if=0x00 BAR0=0x0 (MEM)
+         00:02.0 80ee:beef 显示控制器 prog_if=0x00 BAR0=0x80000000 (MEM)
+         00:04.0 80ee:cafe 系统外设 prog_if=0x00 BAR0=0xc140 (IO)
+         00:05.0 8086:2415 多媒体 prog_if=0x00 BAR0=0xc000 (IO)
+         00:07.0 8086:7113 桥 prog_if=0x00 BAR0=0x0 (MEM)
+         00:0d.0 8086:2829 存储控制器 prog_if=0x01 BAR0=0xc170 (IO)
+[ OK ] pci:  devs=7 buses=1 storage=1 bridges=0
+[ OK ] lumifs: blocks=65536 free=65520 entries=0 seq=0 formatted=1
+       数据盘挂载成功：65536 块（65536 KiB），空闲 65520，日志序号 0，块缓存命中/未命中=4/6，首次使用，已由内核格式化
+[ OK ] write: bytes=2500 readback=2500 match=1 ino=0
+       写 2500 字节（跨 3 块，受单次事务上限限制分成两次提交），读回逐字节一致；inode=0
+       重挂载后：日志重放=false（正常卸载后应为 false），缓存命中/未命中 48/24
+[ OK ] persist: remount=1 replayed=0 bytes=2500
+       卸载再挂载，文件内容逐字节一致；没有走日志重放（说明是正常落盘的，不是靠重放兜的）
+[ OK ] journal: armed_seq=4 replayed=1 blocks=2 content=1
+       造出掉电现场（日志已提交、数据未落地）→ 重挂载 → 重放 2 块 → 文件内容是新的那份。日志真的救了数据。
+[ OK ] cache: hits_gained=12 dirty_after_sync=0
+       同一块连读 5 次，缓存命中 12 次（真正省掉了 ATA 读）；sync 之后脏块数 0
+[ OK ] unlink: gone=1 blocks_restored=1
+       建一个文件写 1 KiB 再删掉：名字查不到了，空闲块数精确回到写之前
+[ OK ] vfs:  root=dir hello=76B dev_null=chr entries=4 open_dirs=0
+       一条路径进来，按挂载点分派：/ 是只读 ext2、/data 是可写 LumiFS、/dev 是合成设备；目录快照 4 项、句柄全部归还
+LUMI-M9
+bin
+hello.txt
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+       reap(sh): pages=285 tables=7 ok=1
+[ OK ] busybox: sh/echo=1 ls=1 cat=1 exit=0 bytes=98
+       musl 静态 busybox 跑通：`sh -c 'echo; ls /; cat /hello.txt'` 三件事全部有输出（ELF 装载 + 初始栈 + 符号链接 + fork/exec/wait4）
+[ OK ] linux-abi: syscall_insns=70 from_cpl3=70
+       `syscall` 指令通道累计 70 次（其中来自 CPL3 的 70 次）：这些不是内核自检，是 busybox 自己发的
+[ OK ] reap: frames 248098 -> 248098 zombies=9 double_free=0
+       busybox 那一轮 fork/exec 用掉的帧全部归还（248098 -> 248098），没有重复释放
+[ OK ] isolate: user_faults=0 kernel_alive=1
+       这一轮没有用户态异常；即便有，也只会杀掉那个进程以 139 退出、内核继续跑
+[ OK ] fault.frame: 200/200 返回 None，恢复后帧数 248098 -> 248098，系统可服务
+       物理帧注入 200 次：每次都由 alloc_frame 返回 None（没有 panic、没有重复发放），解除注入后立刻能分配、帧数精确回到 248098
+[ OK ] fault.heap: try_reserve 拿到 Err，解除后成功，堆审计通过
+       堆注入：分配返回空指针 → `try_reserve_exact` 得到 `Err`（不是 panic）；解除注入后立刻分配成功，堆结构未被破坏
+[ OK ] fault.disk: 读失败被上传为 Err，恢复后 76 字节逐字节一致
+       块设备注入：路径解析拿到 `Err`（不是旧数据、不是垃圾）；解除后重新读到 76 字节且内容与注入前完全一致
+[ OK ] fuzz: syscall×20000 path×5000 无 panic，frames 248098 fd 0->0 tasks 10
+       fuzz 2 万次调用（含页边界/用户上界/内核地址/-1 等 26 个边界值）+5000 条畸形路径：全部返回错误码，没有 panic，也没有留下帧/句柄/任务
+[ OK ] soak: 64 采样 × 500 轮，帧斜率 0‰ 堆斜率 0‰ 首尾差 0（39 ms）
+       加速长跑：32000 轮 / 256000 次操作 / 39 ms；空闲帧与堆占用的回归斜率为 0‰、首尾差为 0 —— 没有泄漏。30 天版用 scripts/soak.sh，判定代码是同一份
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+# bench (rdtsc cycles/op) 0
+getpid 427
+write_null 756
+open_close 4393
+read_4k 7757
+read_total_bytes 1131168
+mmap_unmap_64k 1596884
+fork_wait 34794815
+pipe_rtt 3086
+# done 0
+[ OK ] perf: frame=41ns heap=62ns read=33MiB/s lumifs=12205126ns exec=229616ns pipe1k=100ns
+       TSC 3502 MHz；帧分配+归还 41 ns/次，256B 堆分配 62 ns/次，ext2 顺序读 33 MiB/s（1104 KiB），LumiFS 1KiB 写+flush 12205126 ns，fork+exec+wait+reap 229616 ns，管道 1KiB 往返 100 ns，每次读 4083 次块 I/O
+[ OK ] stack: 高水位 65 KiB / 256 KiB (25%), 金丝雀完好
+       内核栈用量 65 KiB（上限 256 KiB，占 25%）：栈底金丝雀未被触碰——溢出会在踩坏页表之前先被这里抓到
+抢占禁用深度 = 0（必须为 0）
+--------------------------------------------------
+M11 self-test 58/58 passed
+[LIVE] kernel healthy: 4 cpus, uefi+sata, 0 panic, 0 leak
+M11 全部通过：4 个核在线；故障注入 200 次全部优雅失败、fuzz 2.5 万次零 panic、加速长跑零漂移、性能数据见 docs/06-性能对比.md
+这是第一个可发布版本：v1.2.0（M11）。30 天长跑与真机验证由 scripts/ 下的脚本执行
+--------------------------------------------------
+累计 tick = 1354（≈13540 ms） 切换 = 1404 系统调用 = 143（来自 CPL3 143）
+非定时器中断 0 次（应为 0）；当前任务 user=false
+--------------------------------------------------
+[SOAK] 长跑模式：采样间隔 100 tick（1 s）
+[SOAK] 负载：帧 / 堆 / 文件 / 管道 / 目录 / fork+exec / LumiFS 写
+[SOAK] 退出方式：关机（没有别的办法，这是故意的）
+[SOAK] start interval=100 ticks load=frames+heap+file+pipe+dir+exec+lumifs
+SOAK r=194001 s=1 frames=248098 heap=5280 tasks=10 fds=0 t=100
+SOAK r=384001 s=2 frames=248098 heap=5280 tasks=10 fds=0 t=200
+SOAK r=574001 s=3 frames=248098 heap=5280 tasks=10 fds=0 t=300
+SOAK r=770001 s=4 frames=248098 heap=5280 tasks=10 fds=0 t=400
+SOAK r=964001 s=5 frames=248098 heap=5280 tasks=10 fds=0 t=500
+SOAK r=1156001 s=6 frames=248098 heap=5280 tasks=10 fds=0 t=600
+SOAK r=1352001 s=7 frames=248098 heap=5280 tasks=10 fds=0 t=700
+SOAK r=1550001 s=8 frames=248098 heap=5280 tasks=10 fds=0 t=800
+SOAK r=1746001 s=9 frames=248098 heap=5280 tasks=10 fds=0 t=900
+SOAK r=1940001 s=10 frames=248098 heap=5280 tasks=10 fds=0 t=1000
+SOAK r=2136001 s=11 frames=248098 heap=5280 tasks=10 fds=0 t=1100
+SOAK r=2334001 s=12 frames=248098 heap=5280 tasks=10 fds=0 t=1200
+SOAK r=2528001 s=13 frames=248098 heap=5280 tasks=10 fds=0 t=1300
+SOAK r=2720001 s=14 frames=248098 heap=5280 tasks=10 fds=0 t=1400
+SOAK r=2916001 s=15 frames=248098 heap=5280 tasks=10 fds=0 t=1500
+SOAK r=3106001 s=16 frames=248098 heap=5280 tasks=10 fds=0 t=1600
+SOAK r=3300001 s=17 frames=248098 heap=5280 tasks=10 fds=0 t=1700
+SOAK r=3498001 s=18 frames=248098 heap=5280 tasks=10 fds=0 t=1800
+SOAK r=3692001 s=19 frames=248098 heap=5280 tasks=10 fds=0 t=1900
+SOAK r=3890001 s=20 frames=248098 heap=5280 tasks=10 fds=0 t=2000
+SOAK r=4082001 s=21 frames=248098 heap=5280 tasks=10 fds=0 t=2101
+SOAK r=4266001 s=22 frames=248098 heap=5280 tasks=10 fds=0 t=2200
+SOAK r=4462001 s=23 frames=248098 heap=5280 tasks=10 fds=0 t=2300
+SOAK r=4650001 s=24 frames=248098 heap=5280 tasks=10 fds=0 t=2400
+SOAK r=4840001 s=25 frames=248098 heap=5280 tasks=10 fds=0 t=2500
+SOAK r=5032001 s=26 frames=248098 heap=5280 tasks=10 fds=0 t=2600
+SOAK r=5226001 s=27 frames=248098 heap=5280 tasks=10 fds=0 t=2700
+SOAK r=5418001 s=28 frames=248098 heap=5280 tasks=10 fds=0 t=2800
+SOAK r=5612001 s=29 frames=248098 heap=5280 tasks=10 fds=0 t=2900
+SOAK r=5808001 s=30 frames=248098 heap=5280 tasks=10 fds=0 t=3000
+SOAK r=6004001 s=31 frames=248098 heap=5280 tasks=10 fds=0 t=3100
+SOAK r=6200001 s=32 frames=248098 heap=5280 tasks=10 fds=0 t=3200
+SOAK r=6394001 s=33 frames=248098 heap=5280 tasks=10 fds=0 t=3300
+SOAK r=6582001 s=34 frames=248098 heap=5280 tasks=10 fds=0 t=3400
+SOAK r=6770001 s=35 frames=248098 heap=5280 tasks=10 fds=0 t=3500
+SOAK r=6968001 s=36 frames=248098 heap=5280 tasks=10 fds=0 t=3600
+SOAK r=7156001 s=37 frames=248098 heap=5280 tasks=10 fds=0 t=3700
+SOAK r=7350001 s=38 frames=248098 heap=5280 tasks=10 fds=0 t=3800
+SOAK r=7546001 s=39 frames=248098 heap=5280 tasks=10 fds=0 t=3900
+SOAK r=7740001 s=40 frames=248098 heap=5280 tasks=10 fds=0 t=4000
+SOAK r=7926001 s=41 frames=248098 heap=5280 tasks=10 fds=0 t=4100
+SOAK r=8120001 s=42 frames=248098 heap=5280 tasks=10 fds=0 t=4200
+SOAK r=8316001 s=43 frames=248098 heap=5280 tasks=10 fds=0 t=4300
+SOAK r=8506001 s=44 frames=248098 heap=5280 tasks=10 fds=0 t=4400
+SOAK r=8698001 s=45 frames=248098 heap=5280 tasks=10 fds=0 t=4500
+SOAK r=8894001 s=46 frames=248098 heap=5280 tasks=10 fds=0 t=4600
+SOAK r=9088001 s=47 frames=248098 heap=5280 tasks=10 fds=0 t=4700
+SOAK r=9282001 s=48 frames=248098 heap=5280 tasks=10 fds=0 t=4800
+SOAK r=9474001 s=49 frames=248098 heap=5280 tasks=10 fds=0 t=4900
+SOAK r=9670001 s=50 frames=248098 heap=5280 tasks=10 fds=0 t=5000
+SOAK r=9868001 s=51 frames=248098 heap=5280 tasks=10 fds=0 t=5100
+SOAK r=10064001 s=52 frames=248098 heap=5280 tasks=10 fds=0 t=5200
+SOAK r=10264001 s=53 frames=248098 heap=5280 tasks=10 fds=0 t=5300
+SOAK r=10450001 s=54 frames=248098 heap=5280 tasks=10 fds=0 t=5400
+SOAK r=10642001 s=55 frames=248098 heap=5280 tasks=10 fds=0 t=5500
+SOAK r=10832001 s=56 frames=248098 heap=5280 tasks=10 fds=0 t=5600
+SOAK r=11024001 s=57 frames=248098 heap=5280 tasks=10 fds=0 t=5700
+SOAK r=11222001 s=58 frames=248098 heap=5280 tasks=10 fds=0 t=5800
+SOAK r=11408001 s=59 frames=248098 heap=5280 tasks=10 fds=0 t=5900
+SOAK r=11606001 s=60 frames=248098 heap=5280 tasks=10 fds=0 t=6000
+SOAK r=11802001 s=61 frames=248098 heap=5280 tasks=10 fds=0 t=6100
+SOAK r=12000001 s=62 frames=248098 heap=5280 tasks=10 fds=0 t=6200
+SOAK r=12190001 s=63 frames=248098 heap=5280 tasks=10 fds=0 t=6300
+SOAK r=12388001 s=64 frames=248098 heap=5280 tasks=10 fds=0 t=6400
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=64 verdict=ok
+SOAK r=12582001 s=65 frames=248098 heap=5280 tasks=10 fds=0 t=6500
+SOAK r=12782001 s=66 frames=248098 heap=5280 tasks=10 fds=0 t=6600
+SOAK r=12974001 s=67 frames=248098 heap=5280 tasks=10 fds=0 t=6700
+SOAK r=13172001 s=68 frames=248098 heap=5280 tasks=10 fds=0 t=6800
+SOAK r=13368001 s=69 frames=248098 heap=5280 tasks=10 fds=0 t=6900
+SOAK r=13552001 s=70 frames=248098 heap=5280 tasks=10 fds=0 t=7000
+SOAK r=13748001 s=71 frames=248098 heap=5280 tasks=10 fds=0 t=7100
+SOAK r=13944001 s=72 frames=248098 heap=5280 tasks=10 fds=0 t=7200
+SOAK r=14138001 s=73 frames=248098 heap=5280 tasks=10 fds=0 t=7300
+SOAK r=14334001 s=74 frames=248098 heap=5280 tasks=10 fds=0 t=7400
+SOAK r=14524001 s=75 frames=248098 heap=5280 tasks=10 fds=0 t=7500
+SOAK r=14716001 s=76 frames=248098 heap=5280 tasks=10 fds=0 t=7600
+SOAK r=14906001 s=77 frames=248098 heap=5280 tasks=10 fds=0 t=7700
+SOAK r=15102001 s=78 frames=248098 heap=5280 tasks=10 fds=0 t=7800
+SOAK r=15296001 s=79 frames=248098 heap=5280 tasks=10 fds=0 t=7900
+SOAK r=15488001 s=80 frames=248098 heap=5280 tasks=10 fds=0 t=8000
+SOAK r=15682001 s=81 frames=248098 heap=5280 tasks=10 fds=0 t=8100
+SOAK r=15878001 s=82 frames=248098 heap=5280 tasks=10 fds=0 t=8200
+SOAK r=16070001 s=83 frames=248098 heap=5280 tasks=10 fds=0 t=8301
+SOAK r=16268001 s=84 frames=248098 heap=5280 tasks=10 fds=0 t=8400
+SOAK r=16464001 s=85 frames=248098 heap=5280 tasks=10 fds=0 t=8500
+SOAK r=16656001 s=86 frames=248098 heap=5280 tasks=10 fds=0 t=8600
+SOAK r=16848001 s=87 frames=248098 heap=5280 tasks=10 fds=0 t=8700
+SOAK r=17044001 s=88 frames=248098 heap=5280 tasks=10 fds=0 t=8800
+SOAK r=17232001 s=89 frames=248098 heap=5280 tasks=10 fds=0 t=8900
+SOAK r=17424001 s=90 frames=248098 heap=5280 tasks=10 fds=0 t=9000
+SOAK r=17620001 s=91 frames=248098 heap=5280 tasks=10 fds=0 t=9100
+SOAK r=17812001 s=92 frames=248098 heap=5280 tasks=10 fds=0 t=9200
+SOAK r=18008001 s=93 frames=248098 heap=5280 tasks=10 fds=0 t=9300
+SOAK r=18198001 s=94 frames=248098 heap=5280 tasks=10 fds=0 t=9400
+SOAK r=18388001 s=95 frames=248098 heap=5280 tasks=10 fds=0 t=9501
+SOAK r=18582001 s=96 frames=248098 heap=5280 tasks=10 fds=0 t=9600
+SOAK r=18772001 s=97 frames=248098 heap=5280 tasks=10 fds=0 t=9700
+SOAK r=18964001 s=98 frames=248098 heap=5280 tasks=10 fds=0 t=9800
+SOAK r=19158001 s=99 frames=248098 heap=5280 tasks=10 fds=0 t=9900
+SOAK r=19354001 s=100 frames=248098 heap=5280 tasks=10 fds=0 t=10000
+SOAK r=19546001 s=101 frames=248098 heap=5280 tasks=10 fds=0 t=10100
+SOAK r=19734001 s=102 frames=248098 heap=5280 tasks=10 fds=0 t=10200
+SOAK r=19924001 s=103 frames=248098 heap=5280 tasks=10 fds=0 t=10300
+SOAK r=20112001 s=104 frames=248098 heap=5280 tasks=10 fds=0 t=10400
+SOAK r=20306001 s=105 frames=248098 heap=5280 tasks=10 fds=0 t=10500
+SOAK r=20502001 s=106 frames=248098 heap=5280 tasks=10 fds=0 t=10600
+SOAK r=20700001 s=107 frames=248098 heap=5280 tasks=10 fds=0 t=10700
+SOAK r=20896001 s=108 frames=248098 heap=5280 tasks=10 fds=0 t=10800
+SOAK r=21094001 s=109 frames=248098 heap=5280 tasks=10 fds=0 t=10900
+SOAK r=21284001 s=110 frames=248098 heap=5280 tasks=10 fds=0 t=11000
+SOAK r=21470001 s=111 frames=248098 heap=5280 tasks=10 fds=0 t=11100
+SOAK r=21656001 s=112 frames=248098 heap=5280 tasks=10 fds=0 t=11200
+SOAK r=21854001 s=113 frames=248098 heap=5280 tasks=10 fds=0 t=11300
+SOAK r=22050001 s=114 frames=248098 heap=5280 tasks=10 fds=0 t=11400
+SOAK r=22246001 s=115 frames=248098 heap=5280 tasks=10 fds=0 t=11500
+SOAK r=22442001 s=116 frames=248098 heap=5280 tasks=10 fds=0 t=11600
+SOAK r=22636001 s=117 frames=248098 heap=5280 tasks=10 fds=0 t=11700
+SOAK r=22834001 s=118 frames=248098 heap=5280 tasks=10 fds=0 t=11800
+SOAK r=23030001 s=119 frames=248098 heap=5280 tasks=10 fds=0 t=11900
+SOAK r=23230001 s=120 frames=248098 heap=5280 tasks=10 fds=0 t=12001
+SOAK r=23422001 s=121 frames=248098 heap=5280 tasks=10 fds=0 t=12100
+SOAK r=23618001 s=122 frames=248098 heap=5280 tasks=10 fds=0 t=12200
+SOAK r=23810001 s=123 frames=248098 heap=5280 tasks=10 fds=0 t=12300
+SOAK r=24006001 s=124 frames=248098 heap=5280 tasks=10 fds=0 t=12400
+SOAK r=24200001 s=125 frames=248098 heap=5280 tasks=10 fds=0 t=12500
+SOAK r=24398001 s=126 frames=248098 heap=5280 tasks=10 fds=0 t=12600
+SOAK r=24592001 s=127 frames=248098 heap=5280 tasks=10 fds=0 t=12700
+SOAK r=24786001 s=128 frames=248098 heap=5280 tasks=10 fds=0 t=12800
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=128 verdict=ok
+SOAK r=24978001 s=129 frames=248098 heap=5280 tasks=10 fds=0 t=12900
+SOAK r=25172001 s=130 frames=248098 heap=5280 tasks=10 fds=0 t=13000
+SOAK r=25364001 s=131 frames=248098 heap=5280 tasks=10 fds=0 t=13100
+SOAK r=25562001 s=132 frames=248098 heap=5280 tasks=10 fds=0 t=13200
+SOAK r=25760001 s=133 frames=248098 heap=5280 tasks=10 fds=0 t=13300
+SOAK r=25960001 s=134 frames=248098 heap=5280 tasks=10 fds=0 t=13400
+SOAK r=26154001 s=135 frames=248098 heap=5280 tasks=10 fds=0 t=13500
+SOAK r=26340001 s=136 frames=248098 heap=5280 tasks=10 fds=0 t=13600
+SOAK r=26534001 s=137 frames=248098 heap=5280 tasks=10 fds=0 t=13700
+SOAK r=26730001 s=138 frames=248098 heap=5280 tasks=10 fds=0 t=13800
+SOAK r=26926001 s=139 frames=248098 heap=5280 tasks=10 fds=0 t=13900
+SOAK r=27118001 s=140 frames=248098 heap=5280 tasks=10 fds=0 t=14000
+SOAK r=27314001 s=141 frames=248098 heap=5280 tasks=10 fds=0 t=14100
+SOAK r=27512001 s=142 frames=248098 heap=5280 tasks=10 fds=0 t=14200
+SOAK r=27706001 s=143 frames=248098 heap=5280 tasks=10 fds=0 t=14300
+SOAK r=27902001 s=144 frames=248098 heap=5280 tasks=10 fds=0 t=14400
+SOAK r=28100001 s=145 frames=248098 heap=5280 tasks=10 fds=0 t=14500
+SOAK r=28294001 s=146 frames=248098 heap=5280 tasks=10 fds=0 t=14600
+SOAK r=28486001 s=147 frames=248098 heap=5280 tasks=10 fds=0 t=14701
+SOAK r=28678001 s=148 frames=248098 heap=5280 tasks=10 fds=0 t=14800
+SOAK r=28868001 s=149 frames=248098 heap=5280 tasks=10 fds=0 t=14900
+SOAK r=29064001 s=150 frames=248098 heap=5280 tasks=10 fds=0 t=15000
+SOAK r=29250001 s=151 frames=248098 heap=5280 tasks=10 fds=0 t=15100
+SOAK r=29438001 s=152 frames=248098 heap=5280 tasks=10 fds=0 t=15200
+SOAK r=29636001 s=153 frames=248098 heap=5280 tasks=10 fds=0 t=15300
+SOAK r=29828001 s=154 frames=248098 heap=5280 tasks=10 fds=0 t=15400
+SOAK r=30024001 s=155 frames=248098 heap=5280 tasks=10 fds=0 t=15500
+SOAK r=30220001 s=156 frames=248098 heap=5280 tasks=10 fds=0 t=15600
+SOAK r=30418001 s=157 frames=248098 heap=5280 tasks=10 fds=0 t=15700
+SOAK r=30608001 s=158 frames=248098 heap=5280 tasks=10 fds=0 t=15800
+SOAK r=30802001 s=159 frames=248098 heap=5280 tasks=10 fds=0 t=15900
+SOAK r=31000001 s=160 frames=248098 heap=5280 tasks=10 fds=0 t=16000
+SOAK r=31194001 s=161 frames=248098 heap=5280 tasks=10 fds=0 t=16101
+SOAK r=31380001 s=162 frames=248098 heap=5280 tasks=10 fds=0 t=16200
+SOAK r=31570001 s=163 frames=248098 heap=5280 tasks=10 fds=0 t=16300
+SOAK r=31764001 s=164 frames=248098 heap=5280 tasks=10 fds=0 t=16400
+SOAK r=31960001 s=165 frames=248098 heap=5280 tasks=10 fds=0 t=16500
+SOAK r=32152001 s=166 frames=248098 heap=5280 tasks=10 fds=0 t=16600
+SOAK r=32342001 s=167 frames=248098 heap=5280 tasks=10 fds=0 t=16700
+SOAK r=32536001 s=168 frames=248098 heap=5280 tasks=10 fds=0 t=16800
+SOAK r=32730001 s=169 frames=248098 heap=5280 tasks=10 fds=0 t=16900
+SOAK r=32926001 s=170 frames=248098 heap=5280 tasks=10 fds=0 t=17000
+SOAK r=33118001 s=171 frames=248098 heap=5280 tasks=10 fds=0 t=17101
+SOAK r=33314001 s=172 frames=248098 heap=5280 tasks=10 fds=0 t=17200
+SOAK r=33510001 s=173 frames=248098 heap=5280 tasks=10 fds=0 t=17300
+SOAK r=33706001 s=174 frames=248098 heap=5280 tasks=10 fds=0 t=17400
+SOAK r=33904001 s=175 frames=248098 heap=5280 tasks=10 fds=0 t=17500
+SOAK r=34096001 s=176 frames=248098 heap=5280 tasks=10 fds=0 t=17600
+SOAK r=34282001 s=177 frames=248098 heap=5280 tasks=10 fds=0 t=17700
+SOAK r=34480001 s=178 frames=248098 heap=5280 tasks=10 fds=0 t=17800
+SOAK r=34678001 s=179 frames=248098 heap=5280 tasks=10 fds=0 t=17900
+SOAK r=34874001 s=180 frames=248098 heap=5280 tasks=10 fds=0 t=18000
+SOAK r=35068001 s=181 frames=248098 heap=5280 tasks=10 fds=0 t=18100
+SOAK r=35260001 s=182 frames=248098 heap=5280 tasks=10 fds=0 t=18200
+SOAK r=35456001 s=183 frames=248098 heap=5280 tasks=10 fds=0 t=18300
+SOAK r=35652001 s=184 frames=248098 heap=5280 tasks=10 fds=0 t=18400
+SOAK r=35846001 s=185 frames=248098 heap=5280 tasks=10 fds=0 t=18500
+SOAK r=36034001 s=186 frames=248098 heap=5280 tasks=10 fds=0 t=18600
+SOAK r=36228001 s=187 frames=248098 heap=5280 tasks=10 fds=0 t=18700
+SOAK r=36426001 s=188 frames=248098 heap=5280 tasks=10 fds=0 t=18800
+SOAK r=36624001 s=189 frames=248098 heap=5280 tasks=10 fds=0 t=18900
+SOAK r=36820001 s=190 frames=248098 heap=5280 tasks=10 fds=0 t=19000
+SOAK r=37018001 s=191 frames=248098 heap=5280 tasks=10 fds=0 t=19100
+SOAK r=37214001 s=192 frames=248098 heap=5280 tasks=10 fds=0 t=19200
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=192 verdict=ok
+SOAK r=37406001 s=193 frames=248098 heap=5280 tasks=10 fds=0 t=19300
+SOAK r=37604001 s=194 frames=248098 heap=5280 tasks=10 fds=0 t=19400
+SOAK r=37798001 s=195 frames=248098 heap=5280 tasks=10 fds=0 t=19500
+SOAK r=37986001 s=196 frames=248098 heap=5280 tasks=10 fds=0 t=19600
+SOAK r=38178001 s=197 frames=248098 heap=5280 tasks=10 fds=0 t=19700
+SOAK r=38366001 s=198 frames=248098 heap=5280 tasks=10 fds=0 t=19800
+SOAK r=38556001 s=199 frames=248098 heap=5280 tasks=10 fds=0 t=19900
+SOAK r=38750001 s=200 frames=248098 heap=5280 tasks=10 fds=0 t=20000
+SOAK r=38946001 s=201 frames=248098 heap=5280 tasks=10 fds=0 t=20100
+SOAK r=39136001 s=202 frames=248098 heap=5280 tasks=10 fds=0 t=20200
+SOAK r=39334001 s=203 frames=248098 heap=5280 tasks=10 fds=0 t=20300
+SOAK r=39530001 s=204 frames=248098 heap=5280 tasks=10 fds=0 t=20400
+SOAK r=39718001 s=205 frames=248098 heap=5280 tasks=10 fds=0 t=20500
+SOAK r=39910001 s=206 frames=248098 heap=5280 tasks=10 fds=0 t=20600
+SOAK r=40104001 s=207 frames=248098 heap=5280 tasks=10 fds=0 t=20700
+SOAK r=40296001 s=208 frames=248098 heap=5280 tasks=10 fds=0 t=20800
+SOAK r=40490001 s=209 frames=248098 heap=5280 tasks=10 fds=0 t=20900
+SOAK r=40686001 s=210 frames=248098 heap=5280 tasks=10 fds=0 t=21000
+SOAK r=40880001 s=211 frames=248098 heap=5280 tasks=10 fds=0 t=21100
+SOAK r=41078001 s=212 frames=248098 heap=5280 tasks=10 fds=0 t=21200
+SOAK r=41274001 s=213 frames=248098 heap=5280 tasks=10 fds=0 t=21300
+SOAK r=41462001 s=214 frames=248098 heap=5280 tasks=10 fds=0 t=21400
+SOAK r=41658001 s=215 frames=248098 heap=5280 tasks=10 fds=0 t=21500
+SOAK r=41854001 s=216 frames=248098 heap=5280 tasks=10 fds=0 t=21600
+SOAK r=42050001 s=217 frames=248098 heap=5280 tasks=10 fds=0 t=21700
+SOAK r=42246001 s=218 frames=248098 heap=5280 tasks=10 fds=0 t=21800
+SOAK r=42440001 s=219 frames=248098 heap=5280 tasks=10 fds=0 t=21900
+SOAK r=42636001 s=220 frames=248098 heap=5280 tasks=10 fds=0 t=22000
+SOAK r=42834001 s=221 frames=248098 heap=5280 tasks=10 fds=0 t=22101
+SOAK r=43026001 s=222 frames=248098 heap=5280 tasks=10 fds=0 t=22200
+SOAK r=43224001 s=223 frames=248098 heap=5280 tasks=10 fds=0 t=22300
+SOAK r=43412001 s=224 frames=248098 heap=5280 tasks=10 fds=0 t=22400
+SOAK r=43608001 s=225 frames=248098 heap=5280 tasks=10 fds=0 t=22500
+SOAK r=43806001 s=226 frames=248098 heap=5280 tasks=10 fds=0 t=22600
+SOAK r=44000001 s=227 frames=248098 heap=5280 tasks=10 fds=0 t=22700
+SOAK r=44198001 s=228 frames=248098 heap=5280 tasks=10 fds=0 t=22800
+SOAK r=44398001 s=229 frames=248098 heap=5280 tasks=10 fds=0 t=22900
+SOAK r=44592001 s=230 frames=248098 heap=5280 tasks=10 fds=0 t=23000
+SOAK r=44788001 s=231 frames=248098 heap=5280 tasks=10 fds=0 t=23100
+SOAK r=44984001 s=232 frames=248098 heap=5280 tasks=10 fds=0 t=23200
+SOAK r=45174001 s=233 frames=248098 heap=5280 tasks=10 fds=0 t=23300
+SOAK r=45372001 s=234 frames=248098 heap=5280 tasks=10 fds=0 t=23400
+SOAK r=45562001 s=235 frames=248098 heap=5280 tasks=10 fds=0 t=23500
+SOAK r=45754001 s=236 frames=248098 heap=5280 tasks=10 fds=0 t=23600
+SOAK r=45942001 s=237 frames=248098 heap=5280 tasks=10 fds=0 t=23700
+SOAK r=46138001 s=238 frames=248098 heap=5280 tasks=10 fds=0 t=23800
+SOAK r=46328001 s=239 frames=248098 heap=5280 tasks=10 fds=0 t=23900
+SOAK r=46526001 s=240 frames=248098 heap=5280 tasks=10 fds=0 t=24000
+SOAK r=46724001 s=241 frames=248098 heap=5280 tasks=10 fds=0 t=24100
+SOAK r=46918001 s=242 frames=248098 heap=5280 tasks=10 fds=0 t=24200
+SOAK r=47108001 s=243 frames=248098 heap=5280 tasks=10 fds=0 t=24300
+SOAK r=47302001 s=244 frames=248098 heap=5280 tasks=10 fds=0 t=24400
+SOAK r=47496001 s=245 frames=248098 heap=5280 tasks=10 fds=0 t=24501
+SOAK r=47682001 s=246 frames=248098 heap=5280 tasks=10 fds=0 t=24600
+SOAK r=47876001 s=247 frames=248098 heap=5280 tasks=10 fds=0 t=24700
+SOAK r=48066001 s=248 frames=248098 heap=5280 tasks=10 fds=0 t=24800
+SOAK r=48248001 s=249 frames=248098 heap=5280 tasks=10 fds=0 t=24900
+SOAK r=48436001 s=250 frames=248098 heap=5280 tasks=10 fds=0 t=25000
+SOAK r=48626001 s=251 frames=248098 heap=5280 tasks=10 fds=0 t=25100
+SOAK r=48810001 s=252 frames=248098 heap=5280 tasks=10 fds=0 t=25200
+SOAK r=49004001 s=253 frames=248098 heap=5280 tasks=10 fds=0 t=25301
+SOAK r=49194001 s=254 frames=248098 heap=5280 tasks=10 fds=0 t=25400
+SOAK r=49382001 s=255 frames=248098 heap=5280 tasks=10 fds=0 t=25500
+SOAK r=49580001 s=256 frames=248098 heap=5280 tasks=10 fds=0 t=25600
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=256 verdict=ok
+SOAK r=49776001 s=257 frames=248098 heap=5280 tasks=10 fds=0 t=25700
+SOAK r=49962001 s=258 frames=248098 heap=5280 tasks=10 fds=0 t=25800
+SOAK r=50158001 s=259 frames=248098 heap=5280 tasks=10 fds=0 t=25900
+SOAK r=50350001 s=260 frames=248098 heap=5280 tasks=10 fds=0 t=26000
+SOAK r=50538001 s=261 frames=248098 heap=5280 tasks=10 fds=0 t=26100
+SOAK r=50730001 s=262 frames=248098 heap=5280 tasks=10 fds=0 t=26200
+SOAK r=50926001 s=263 frames=248098 heap=5280 tasks=10 fds=0 t=26300
+SOAK r=51122001 s=264 frames=248098 heap=5280 tasks=10 fds=0 t=26400
+SOAK r=51320001 s=265 frames=248098 heap=5280 tasks=10 fds=0 t=26500
+SOAK r=51514001 s=266 frames=248098 heap=5280 tasks=10 fds=0 t=26600
+SOAK r=51706001 s=267 frames=248098 heap=5280 tasks=10 fds=0 t=26700
+SOAK r=51894001 s=268 frames=248098 heap=5280 tasks=10 fds=0 t=26800
+SOAK r=52090001 s=269 frames=248098 heap=5280 tasks=10 fds=0 t=26900
+SOAK r=52286001 s=270 frames=248098 heap=5280 tasks=10 fds=0 t=27000
+SOAK r=52478001 s=271 frames=248098 heap=5280 tasks=10 fds=0 t=27100
+SOAK r=52676001 s=272 frames=248098 heap=5280 tasks=10 fds=0 t=27200
+SOAK r=52870001 s=273 frames=248098 heap=5280 tasks=10 fds=0 t=27300
+SOAK r=53060001 s=274 frames=248098 heap=5280 tasks=10 fds=0 t=27400
+SOAK r=53250001 s=275 frames=248098 heap=5280 tasks=10 fds=0 t=27500
+SOAK r=53448001 s=276 frames=248098 heap=5280 tasks=10 fds=0 t=27600
+SOAK r=53642001 s=277 frames=248098 heap=5280 tasks=10 fds=0 t=27700
+SOAK r=53840001 s=278 frames=248098 heap=5280 tasks=10 fds=0 t=27800
+SOAK r=54034001 s=279 frames=248098 heap=5280 tasks=10 fds=0 t=27900
+SOAK r=54228001 s=280 frames=248098 heap=5280 tasks=10 fds=0 t=28000
+SOAK r=54422001 s=281 frames=248098 heap=5280 tasks=10 fds=0 t=28100
+SOAK r=54612001 s=282 frames=248098 heap=5280 tasks=10 fds=0 t=28200
+SOAK r=54804001 s=283 frames=248098 heap=5280 tasks=10 fds=0 t=28300
+SOAK r=54998001 s=284 frames=248098 heap=5280 tasks=10 fds=0 t=28400
+SOAK r=55194001 s=285 frames=248098 heap=5280 tasks=10 fds=0 t=28500
+SOAK r=55388001 s=286 frames=248098 heap=5280 tasks=10 fds=0 t=28600
+SOAK r=55580001 s=287 frames=248098 heap=5280 tasks=10 fds=0 t=28700
+SOAK r=55776001 s=288 frames=248098 heap=5280 tasks=10 fds=0 t=28800
+SOAK r=55964001 s=289 frames=248098 heap=5280 tasks=10 fds=0 t=28900
+SOAK r=56154001 s=290 frames=248098 heap=5280 tasks=10 fds=0 t=29000
+SOAK r=56350001 s=291 frames=248098 heap=5280 tasks=10 fds=0 t=29100
+SOAK r=56540001 s=292 frames=248098 heap=5280 tasks=10 fds=0 t=29200
+SOAK r=56734001 s=293 frames=248098 heap=5280 tasks=10 fds=0 t=29300
+SOAK r=56930001 s=294 frames=248098 heap=5280 tasks=10 fds=0 t=29400
+SOAK r=57122001 s=295 frames=248098 heap=5280 tasks=10 fds=0 t=29500
+SOAK r=57318001 s=296 frames=248098 heap=5280 tasks=10 fds=0 t=29600
+SOAK r=57508001 s=297 frames=248098 heap=5280 tasks=10 fds=0 t=29700
+SOAK r=57702001 s=298 frames=248098 heap=5280 tasks=10 fds=0 t=29800
+SOAK r=57888001 s=299 frames=248098 heap=5280 tasks=10 fds=0 t=29900
+SOAK r=58078001 s=300 frames=248098 heap=5280 tasks=10 fds=0 t=30000
+SOAK r=58274001 s=301 frames=248098 heap=5280 tasks=10 fds=0 t=30100
+SOAK r=58470001 s=302 frames=248098 heap=5280 tasks=10 fds=0 t=30200
+SOAK r=58666001 s=303 frames=248098 heap=5280 tasks=10 fds=0 t=30300
+SOAK r=58866001 s=304 frames=248098 heap=5280 tasks=10 fds=0 t=30400
+SOAK r=59056001 s=305 frames=248098 heap=5280 tasks=10 fds=0 t=30500
+SOAK r=59254001 s=306 frames=248098 heap=5280 tasks=10 fds=0 t=30600
+SOAK r=59454001 s=307 frames=248098 heap=5280 tasks=10 fds=0 t=30700
+SOAK r=59648001 s=308 frames=248098 heap=5280 tasks=10 fds=0 t=30800
+SOAK r=59844001 s=309 frames=248098 heap=5280 tasks=10 fds=0 t=30900
+SOAK r=60044001 s=310 frames=248098 heap=5280 tasks=10 fds=0 t=31000
+SOAK r=60238001 s=311 frames=248098 heap=5280 tasks=10 fds=0 t=31100
+SOAK r=60428001 s=312 frames=248098 heap=5280 tasks=10 fds=0 t=31200
+SOAK r=60626001 s=313 frames=248098 heap=5280 tasks=10 fds=0 t=31300
+SOAK r=60814001 s=314 frames=248098 heap=5280 tasks=10 fds=0 t=31400
+SOAK r=61006001 s=315 frames=248098 heap=5280 tasks=10 fds=0 t=31500
+SOAK r=61204001 s=316 frames=248098 heap=5280 tasks=10 fds=0 t=31600
+SOAK r=61398001 s=317 frames=248098 heap=5280 tasks=10 fds=0 t=31700
+SOAK r=61592001 s=318 frames=248098 heap=5280 tasks=10 fds=0 t=31800
+SOAK r=61788001 s=319 frames=248098 heap=5280 tasks=10 fds=0 t=31900
+SOAK r=61980001 s=320 frames=248098 heap=5280 tasks=10 fds=0 t=32000
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=320 verdict=ok
+SOAK r=62176001 s=321 frames=248098 heap=5280 tasks=10 fds=0 t=32100
+SOAK r=62374001 s=322 frames=248098 heap=5280 tasks=10 fds=0 t=32200
+SOAK r=62568001 s=323 frames=248098 heap=5280 tasks=10 fds=0 t=32300
+SOAK r=62762001 s=324 frames=248098 heap=5280 tasks=10 fds=0 t=32400
+SOAK r=62956001 s=325 frames=248098 heap=5280 tasks=10 fds=0 t=32500
+SOAK r=63150001 s=326 frames=248098 heap=5280 tasks=10 fds=0 t=32600
+SOAK r=63346001 s=327 frames=248098 heap=5280 tasks=10 fds=0 t=32700
+SOAK r=63536001 s=328 frames=248098 heap=5280 tasks=10 fds=0 t=32800
+SOAK r=63734001 s=329 frames=248098 heap=5280 tasks=10 fds=0 t=32900
+SOAK r=63926001 s=330 frames=248098 heap=5280 tasks=10 fds=0 t=33000
+SOAK r=64112001 s=331 frames=248098 heap=5280 tasks=10 fds=0 t=33100
+SOAK r=64308001 s=332 frames=248098 heap=5280 tasks=10 fds=0 t=33200
+SOAK r=64504001 s=333 frames=248098 heap=5280 tasks=10 fds=0 t=33300
+SOAK r=64694001 s=334 frames=248098 heap=5280 tasks=10 fds=0 t=33400
+SOAK r=64888001 s=335 frames=248098 heap=5280 tasks=10 fds=0 t=33500
+SOAK r=65076001 s=336 frames=248098 heap=5280 tasks=10 fds=0 t=33600
+SOAK r=65266001 s=337 frames=248098 heap=5280 tasks=10 fds=0 t=33700
+SOAK r=65466001 s=338 frames=248098 heap=5280 tasks=10 fds=0 t=33800
+SOAK r=65664001 s=339 frames=248098 heap=5280 tasks=10 fds=0 t=33900
+SOAK r=65860001 s=340 frames=248098 heap=5280 tasks=10 fds=0 t=34000
+SOAK r=66048001 s=341 frames=248098 heap=5280 tasks=10 fds=0 t=34100
+SOAK r=66244001 s=342 frames=248098 heap=5280 tasks=10 fds=0 t=34200
+SOAK r=66440001 s=343 frames=248098 heap=5280 tasks=10 fds=0 t=34300
+SOAK r=66630001 s=344 frames=248098 heap=5280 tasks=10 fds=0 t=34400
+SOAK r=66822001 s=345 frames=248098 heap=5280 tasks=10 fds=0 t=34500
+SOAK r=67018001 s=346 frames=248098 heap=5280 tasks=10 fds=0 t=34600
+SOAK r=67216001 s=347 frames=248098 heap=5280 tasks=10 fds=0 t=34700
+SOAK r=67412001 s=348 frames=248098 heap=5280 tasks=10 fds=0 t=34800
+SOAK r=67604001 s=349 frames=248098 heap=5280 tasks=10 fds=0 t=34900
+SOAK r=67792001 s=350 frames=248098 heap=5280 tasks=10 fds=0 t=35000
+SOAK r=67988001 s=351 frames=248098 heap=5280 tasks=10 fds=0 t=35100
+SOAK r=68184001 s=352 frames=248098 heap=5280 tasks=10 fds=0 t=35200
+SOAK r=68374001 s=353 frames=248098 heap=5280 tasks=10 fds=0 t=35300
+SOAK r=68562001 s=354 frames=248098 heap=5280 tasks=10 fds=0 t=35400
+SOAK r=68756001 s=355 frames=248098 heap=5280 tasks=10 fds=0 t=35500
+SOAK r=68950001 s=356 frames=248098 heap=5280 tasks=10 fds=0 t=35600
+SOAK r=69148001 s=357 frames=248098 heap=5280 tasks=10 fds=0 t=35700
+SOAK r=69344001 s=358 frames=248098 heap=5280 tasks=10 fds=0 t=35800
+SOAK r=69538001 s=359 frames=248098 heap=5280 tasks=10 fds=0 t=35900
+SOAK r=69734001 s=360 frames=248098 heap=5280 tasks=10 fds=0 t=36000
+SOAK r=69928001 s=361 frames=248098 heap=5280 tasks=10 fds=0 t=36100
+SOAK r=70126001 s=362 frames=248098 heap=5280 tasks=10 fds=0 t=36200
+SOAK r=70320001 s=363 frames=248098 heap=5280 tasks=10 fds=0 t=36300
+SOAK r=70516001 s=364 frames=248098 heap=5280 tasks=10 fds=0 t=36400
+SOAK r=70706001 s=365 frames=248098 heap=5280 tasks=10 fds=0 t=36500
+SOAK r=70896001 s=366 frames=248098 heap=5280 tasks=10 fds=0 t=36600
+SOAK r=71092001 s=367 frames=248098 heap=5280 tasks=10 fds=0 t=36700
+SOAK r=71286001 s=368 frames=248098 heap=5280 tasks=10 fds=0 t=36800
+SOAK r=71484001 s=369 frames=248098 heap=5280 tasks=10 fds=0 t=36900
+SOAK r=71674001 s=370 frames=248098 heap=5280 tasks=10 fds=0 t=37000
+SOAK r=71872001 s=371 frames=248098 heap=5280 tasks=10 fds=0 t=37100
+SOAK r=72062001 s=372 frames=248098 heap=5280 tasks=10 fds=0 t=37200
+SOAK r=72256001 s=373 frames=248098 heap=5280 tasks=10 fds=0 t=37300
+SOAK r=72452001 s=374 frames=248098 heap=5280 tasks=10 fds=0 t=37400
+SOAK r=72642001 s=375 frames=248098 heap=5280 tasks=10 fds=0 t=37500
+SOAK r=72834001 s=376 frames=248098 heap=5280 tasks=10 fds=0 t=37600
+SOAK r=73028001 s=377 frames=248098 heap=5280 tasks=10 fds=0 t=37700
+SOAK r=73224001 s=378 frames=248098 heap=5280 tasks=10 fds=0 t=37800
+SOAK r=73414001 s=379 frames=248098 heap=5280 tasks=10 fds=0 t=37900
+SOAK r=73608001 s=380 frames=248098 heap=5280 tasks=10 fds=0 t=38000
+SOAK r=73800001 s=381 frames=248098 heap=5280 tasks=10 fds=0 t=38100
+SOAK r=73996001 s=382 frames=248098 heap=5280 tasks=10 fds=0 t=38200
+SOAK r=74194001 s=383 frames=248098 heap=5280 tasks=10 fds=0 t=38300
+SOAK r=74380001 s=384 frames=248098 heap=5280 tasks=10 fds=0 t=38400
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=384 verdict=ok
+SOAK r=74574001 s=385 frames=248098 heap=5280 tasks=10 fds=0 t=38500
+SOAK r=74772001 s=386 frames=248098 heap=5280 tasks=10 fds=0 t=38600
+SOAK r=74968001 s=387 frames=248098 heap=5280 tasks=10 fds=0 t=38700
+SOAK r=75164001 s=388 frames=248098 heap=5280 tasks=10 fds=0 t=38800
+SOAK r=75360001 s=389 frames=248098 heap=5280 tasks=10 fds=0 t=38900
+SOAK r=75552001 s=390 frames=248098 heap=5280 tasks=10 fds=0 t=39000
+SOAK r=75746001 s=391 frames=248098 heap=5280 tasks=10 fds=0 t=39100
+SOAK r=75938001 s=392 frames=248098 heap=5280 tasks=10 fds=0 t=39200
+SOAK r=76138001 s=393 frames=248098 heap=5280 tasks=10 fds=0 t=39300
+SOAK r=76330001 s=394 frames=248098 heap=5280 tasks=10 fds=0 t=39400
+SOAK r=76526001 s=395 frames=248098 heap=5280 tasks=10 fds=0 t=39500
+SOAK r=76724001 s=396 frames=248098 heap=5280 tasks=10 fds=0 t=39600
+SOAK r=76918001 s=397 frames=248098 heap=5280 tasks=10 fds=0 t=39700
+SOAK r=77106001 s=398 frames=248098 heap=5280 tasks=10 fds=0 t=39800
+SOAK r=77302001 s=399 frames=248098 heap=5280 tasks=10 fds=0 t=39900
+SOAK r=77490001 s=400 frames=248098 heap=5280 tasks=10 fds=0 t=40000
+SOAK r=77686001 s=401 frames=248098 heap=5280 tasks=10 fds=0 t=40100
+SOAK r=77882001 s=402 frames=248098 heap=5280 tasks=10 fds=0 t=40200
+SOAK r=78072001 s=403 frames=248098 heap=5280 tasks=10 fds=0 t=40300
+SOAK r=78268001 s=404 frames=248098 heap=5280 tasks=10 fds=0 t=40400
+SOAK r=78464001 s=405 frames=248098 heap=5280 tasks=10 fds=0 t=40500
+SOAK r=78662001 s=406 frames=248098 heap=5280 tasks=10 fds=0 t=40600
+SOAK r=78862001 s=407 frames=248098 heap=5280 tasks=10 fds=0 t=40700
+SOAK r=79060001 s=408 frames=248098 heap=5280 tasks=10 fds=0 t=40800
+SOAK r=79248001 s=409 frames=248098 heap=5280 tasks=10 fds=0 t=40900
+SOAK r=79440001 s=410 frames=248098 heap=5280 tasks=10 fds=0 t=41000
+SOAK r=79638001 s=411 frames=248098 heap=5280 tasks=10 fds=0 t=41100
+SOAK r=79838001 s=412 frames=248098 heap=5280 tasks=10 fds=0 t=41200
+SOAK r=80028001 s=413 frames=248098 heap=5280 tasks=10 fds=0 t=41300
+SOAK r=80222001 s=414 frames=248098 heap=5280 tasks=10 fds=0 t=41400
+SOAK r=80418001 s=415 frames=248098 heap=5280 tasks=10 fds=0 t=41500
+SOAK r=80616001 s=416 frames=248098 heap=5280 tasks=10 fds=0 t=41600
+SOAK r=80810001 s=417 frames=248098 heap=5280 tasks=10 fds=0 t=41700
+SOAK r=81002001 s=418 frames=248098 heap=5280 tasks=10 fds=0 t=41800
+SOAK r=81196001 s=419 frames=248098 heap=5280 tasks=10 fds=0 t=41900
+SOAK r=81392001 s=420 frames=248098 heap=5280 tasks=10 fds=0 t=42000
+SOAK r=81588001 s=421 frames=248098 heap=5280 tasks=10 fds=0 t=42100
+SOAK r=81784001 s=422 frames=248098 heap=5280 tasks=10 fds=0 t=42200
+SOAK r=81976001 s=423 frames=248098 heap=5280 tasks=10 fds=0 t=42300
+SOAK r=82170001 s=424 frames=248098 heap=5280 tasks=10 fds=0 t=42400
+SOAK r=82360001 s=425 frames=248098 heap=5280 tasks=10 fds=0 t=42500
+SOAK r=82554001 s=426 frames=248098 heap=5280 tasks=10 fds=0 t=42600
+SOAK r=82750001 s=427 frames=248098 heap=5280 tasks=10 fds=0 t=42700
+SOAK r=82940001 s=428 frames=248098 heap=5280 tasks=10 fds=0 t=42800
+SOAK r=83130001 s=429 frames=248098 heap=5280 tasks=10 fds=0 t=42900
+SOAK r=83330001 s=430 frames=248098 heap=5280 tasks=10 fds=0 t=43000
+SOAK r=83528001 s=431 frames=248098 heap=5280 tasks=10 fds=0 t=43100
+SOAK r=83716001 s=432 frames=248098 heap=5280 tasks=10 fds=0 t=43200
+SOAK r=83910001 s=433 frames=248098 heap=5280 tasks=10 fds=0 t=43300
+SOAK r=84108001 s=434 frames=248098 heap=5280 tasks=10 fds=0 t=43400
+SOAK r=84296001 s=435 frames=248098 heap=5280 tasks=10 fds=0 t=43500
+SOAK r=84492001 s=436 frames=248098 heap=5280 tasks=10 fds=0 t=43600
+SOAK r=84684001 s=437 frames=248098 heap=5280 tasks=10 fds=0 t=43700
+SOAK r=84880001 s=438 frames=248098 heap=5280 tasks=10 fds=0 t=43800
+SOAK r=85078001 s=439 frames=248098 heap=5280 tasks=10 fds=0 t=43900
+SOAK r=85276001 s=440 frames=248098 heap=5280 tasks=10 fds=0 t=44000
+SOAK r=85470001 s=441 frames=248098 heap=5280 tasks=10 fds=0 t=44100
+SOAK r=85664001 s=442 frames=248098 heap=5280 tasks=10 fds=0 t=44200
+SOAK r=85860001 s=443 frames=248098 heap=5280 tasks=10 fds=0 t=44300
+SOAK r=86056001 s=444 frames=248098 heap=5280 tasks=10 fds=0 t=44400
+SOAK r=86246001 s=445 frames=248098 heap=5280 tasks=10 fds=0 t=44500
+SOAK r=86440001 s=446 frames=248098 heap=5280 tasks=10 fds=0 t=44600
+SOAK r=86636001 s=447 frames=248098 heap=5280 tasks=10 fds=0 t=44700
+SOAK r=86820001 s=448 frames=248098 heap=5280 tasks=10 fds=0 t=44800
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=448 verdict=ok
+SOAK r=87018001 s=449 frames=248098 heap=5280 tasks=10 fds=0 t=44901
+SOAK r=87216001 s=450 frames=248098 heap=5280 tasks=10 fds=0 t=45000
+SOAK r=87414001 s=451 frames=248098 heap=5280 tasks=10 fds=0 t=45100
+SOAK r=87614001 s=452 frames=248098 heap=5280 tasks=10 fds=0 t=45200
+SOAK r=87812001 s=453 frames=248098 heap=5280 tasks=10 fds=0 t=45300
+SOAK r=88002001 s=454 frames=248098 heap=5280 tasks=10 fds=0 t=45400
+SOAK r=88194001 s=455 frames=248098 heap=5280 tasks=10 fds=0 t=45500
+SOAK r=88384001 s=456 frames=248098 heap=5280 tasks=10 fds=0 t=45600
+SOAK r=88580001 s=457 frames=248098 heap=5280 tasks=10 fds=0 t=45700
+SOAK r=88778001 s=458 frames=248098 heap=5280 tasks=10 fds=0 t=45800
+SOAK r=88972001 s=459 frames=248098 heap=5280 tasks=10 fds=0 t=45900
+SOAK r=89168001 s=460 frames=248098 heap=5280 tasks=10 fds=0 t=46000
+SOAK r=89364001 s=461 frames=248098 heap=5280 tasks=10 fds=0 t=46100
+SOAK r=89556001 s=462 frames=248098 heap=5280 tasks=10 fds=0 t=46200
+SOAK r=89750001 s=463 frames=248098 heap=5280 tasks=10 fds=0 t=46300
+SOAK r=89940001 s=464 frames=248098 heap=5280 tasks=10 fds=0 t=46400
+SOAK r=90134001 s=465 frames=248098 heap=5280 tasks=10 fds=0 t=46500
+SOAK r=90328001 s=466 frames=248098 heap=5280 tasks=10 fds=0 t=46600
+SOAK r=90526001 s=467 frames=248098 heap=5280 tasks=10 fds=0 t=46700
+SOAK r=90724001 s=468 frames=248098 heap=5280 tasks=10 fds=0 t=46800
+SOAK r=90920001 s=469 frames=248098 heap=5280 tasks=10 fds=0 t=46900
+SOAK r=91118001 s=470 frames=248098 heap=5280 tasks=10 fds=0 t=47000
+SOAK r=91316001 s=471 frames=248098 heap=5280 tasks=10 fds=0 t=47100
+SOAK r=91512001 s=472 frames=248098 heap=5280 tasks=10 fds=0 t=47200
+SOAK r=91704001 s=473 frames=248098 heap=5280 tasks=10 fds=0 t=47300
+SOAK r=91898001 s=474 frames=248098 heap=5280 tasks=10 fds=0 t=47400
+SOAK r=92092001 s=475 frames=248098 heap=5280 tasks=10 fds=0 t=47500
+SOAK r=92288001 s=476 frames=248098 heap=5280 tasks=10 fds=0 t=47600
+SOAK r=92480001 s=477 frames=248098 heap=5280 tasks=10 fds=0 t=47700
+SOAK r=92674001 s=478 frames=248098 heap=5280 tasks=10 fds=0 t=47800
+SOAK r=92864001 s=479 frames=248098 heap=5280 tasks=10 fds=0 t=47900
+SOAK r=93058001 s=480 frames=248098 heap=5280 tasks=10 fds=0 t=48000
+SOAK r=93250001 s=481 frames=248098 heap=5280 tasks=10 fds=0 t=48100
+SOAK r=93444001 s=482 frames=248098 heap=5280 tasks=10 fds=0 t=48200
+SOAK r=93634001 s=483 frames=248098 heap=5280 tasks=10 fds=0 t=48300
+SOAK r=93830001 s=484 frames=248098 heap=5280 tasks=10 fds=0 t=48400
+SOAK r=94024001 s=485 frames=248098 heap=5280 tasks=10 fds=0 t=48500
+SOAK r=94216001 s=486 frames=248098 heap=5280 tasks=10 fds=0 t=48600
+SOAK r=94410001 s=487 frames=248098 heap=5280 tasks=10 fds=0 t=48700
+SOAK r=94598001 s=488 frames=248098 heap=5280 tasks=10 fds=0 t=48800
+SOAK r=94788001 s=489 frames=248098 heap=5280 tasks=10 fds=0 t=48900
+SOAK r=94986001 s=490 frames=248098 heap=5280 tasks=10 fds=0 t=49000
+SOAK r=95184001 s=491 frames=248098 heap=5280 tasks=10 fds=0 t=49100
+SOAK r=95382001 s=492 frames=248098 heap=5280 tasks=10 fds=0 t=49200
+SOAK r=95572001 s=493 frames=248098 heap=5280 tasks=10 fds=0 t=49300
+SOAK r=95764001 s=494 frames=248098 heap=5280 tasks=10 fds=0 t=49400
+SOAK r=95958001 s=495 frames=248098 heap=5280 tasks=10 fds=0 t=49500
+SOAK r=96154001 s=496 frames=248098 heap=5280 tasks=10 fds=0 t=49600
+SOAK r=96354001 s=497 frames=248098 heap=5280 tasks=10 fds=0 t=49700
+SOAK r=96550001 s=498 frames=248098 heap=5280 tasks=10 fds=0 t=49800
+SOAK r=96748001 s=499 frames=248098 heap=5280 tasks=10 fds=0 t=49900
+SOAK r=96944001 s=500 frames=248098 heap=5280 tasks=10 fds=0 t=50000
+SOAK r=97140001 s=501 frames=248098 heap=5280 tasks=10 fds=0 t=50100
+SOAK r=97338001 s=502 frames=248098 heap=5280 tasks=10 fds=0 t=50201
+SOAK r=97534001 s=503 frames=248098 heap=5280 tasks=10 fds=0 t=50300
+SOAK r=97726001 s=504 frames=248098 heap=5280 tasks=10 fds=0 t=50400
+SOAK r=97922001 s=505 frames=248098 heap=5280 tasks=10 fds=0 t=50500
+SOAK r=98120001 s=506 frames=248098 heap=5280 tasks=10 fds=0 t=50600
+SOAK r=98314001 s=507 frames=248098 heap=5280 tasks=10 fds=0 t=50700
+SOAK r=98510001 s=508 frames=248098 heap=5280 tasks=10 fds=0 t=50800
+SOAK r=98706001 s=509 frames=248098 heap=5280 tasks=10 fds=0 t=50900
+SOAK r=98892001 s=510 frames=248098 heap=5280 tasks=10 fds=0 t=51000
+SOAK r=99092001 s=511 frames=248098 heap=5280 tasks=10 fds=0 t=51100
+SOAK r=99292001 s=512 frames=248098 heap=5280 tasks=10 fds=0 t=51200
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=512 verdict=ok
+SOAK r=99488001 s=513 frames=248098 heap=5280 tasks=10 fds=0 t=51300
+SOAK r=99682001 s=514 frames=248098 heap=5280 tasks=10 fds=0 t=51400
+SOAK r=99876001 s=515 frames=248098 heap=5280 tasks=10 fds=0 t=51500
+SOAK r=100072001 s=516 frames=248098 heap=5280 tasks=10 fds=0 t=51600
+SOAK r=100270001 s=517 frames=248098 heap=5280 tasks=10 fds=0 t=51700
+SOAK r=100466001 s=518 frames=248098 heap=5280 tasks=10 fds=0 t=51800
+SOAK r=100662001 s=519 frames=248098 heap=5280 tasks=10 fds=0 t=51901
+SOAK r=100854001 s=520 frames=248098 heap=5280 tasks=10 fds=0 t=52000
+SOAK r=101054001 s=521 frames=248098 heap=5280 tasks=10 fds=0 t=52100
+SOAK r=101250001 s=522 frames=248098 heap=5280 tasks=10 fds=0 t=52200
+SOAK r=101442001 s=523 frames=248098 heap=5280 tasks=10 fds=0 t=52300
+SOAK r=101642001 s=524 frames=248098 heap=5280 tasks=10 fds=0 t=52400
+SOAK r=101834001 s=525 frames=248098 heap=5280 tasks=10 fds=0 t=52501
+SOAK r=102016001 s=526 frames=248098 heap=5280 tasks=10 fds=0 t=52600
+SOAK r=102210001 s=527 frames=248098 heap=5280 tasks=10 fds=0 t=52700
+SOAK r=102410001 s=528 frames=248098 heap=5280 tasks=10 fds=0 t=52800
+SOAK r=102604001 s=529 frames=248098 heap=5280 tasks=10 fds=0 t=52900
+SOAK r=102794001 s=530 frames=248098 heap=5280 tasks=10 fds=0 t=53000
+SOAK r=102992001 s=531 frames=248098 heap=5280 tasks=10 fds=0 t=53100
+SOAK r=103188001 s=532 frames=248098 heap=5280 tasks=10 fds=0 t=53200
+SOAK r=103386001 s=533 frames=248098 heap=5280 tasks=10 fds=0 t=53300
+SOAK r=103578001 s=534 frames=248098 heap=5280 tasks=10 fds=0 t=53400
+SOAK r=103766001 s=535 frames=248098 heap=5280 tasks=10 fds=0 t=53500
+SOAK r=103960001 s=536 frames=248098 heap=5280 tasks=10 fds=0 t=53600
+SOAK r=104156001 s=537 frames=248098 heap=5280 tasks=10 fds=0 t=53700
+SOAK r=104342001 s=538 frames=248098 heap=5280 tasks=10 fds=0 t=53800
+SOAK r=104540001 s=539 frames=248098 heap=5280 tasks=10 fds=0 t=53900
+SOAK r=104738001 s=540 frames=248098 heap=5280 tasks=10 fds=0 t=54000
+SOAK r=104932001 s=541 frames=248098 heap=5280 tasks=10 fds=0 t=54101
+SOAK r=105124001 s=542 frames=248098 heap=5280 tasks=10 fds=0 t=54200
+SOAK r=105322001 s=543 frames=248098 heap=5280 tasks=10 fds=0 t=54300
+SOAK r=105514001 s=544 frames=248098 heap=5280 tasks=10 fds=0 t=54400
+SOAK r=105704001 s=545 frames=248098 heap=5280 tasks=10 fds=0 t=54500
+SOAK r=105898001 s=546 frames=248098 heap=5280 tasks=10 fds=0 t=54600
+SOAK r=106088001 s=547 frames=248098 heap=5280 tasks=10 fds=0 t=54700
+SOAK r=106286001 s=548 frames=248098 heap=5280 tasks=10 fds=0 t=54800
+SOAK r=106480001 s=549 frames=248098 heap=5280 tasks=10 fds=0 t=54900
+SOAK r=106672001 s=550 frames=248098 heap=5280 tasks=10 fds=0 t=55000
+SOAK r=106864001 s=551 frames=248098 heap=5280 tasks=10 fds=0 t=55100
+SOAK r=107062001 s=552 frames=248098 heap=5280 tasks=10 fds=0 t=55200
+SOAK r=107252001 s=553 frames=248098 heap=5280 tasks=10 fds=0 t=55300
+SOAK r=107444001 s=554 frames=248098 heap=5280 tasks=10 fds=0 t=55400
+SOAK r=107636001 s=555 frames=248098 heap=5280 tasks=10 fds=0 t=55500
+SOAK r=107826001 s=556 frames=248098 heap=5280 tasks=10 fds=0 t=55600
+SOAK r=108018001 s=557 frames=248098 heap=5280 tasks=10 fds=0 t=55700
+SOAK r=108208001 s=558 frames=248098 heap=5280 tasks=10 fds=0 t=55800
+SOAK r=108402001 s=559 frames=248098 heap=5280 tasks=10 fds=0 t=55900
+SOAK r=108598001 s=560 frames=248098 heap=5280 tasks=10 fds=0 t=56000
+SOAK r=108794001 s=561 frames=248098 heap=5280 tasks=10 fds=0 t=56100
+SOAK r=108988001 s=562 frames=248098 heap=5280 tasks=10 fds=0 t=56200
+SOAK r=109180001 s=563 frames=248098 heap=5280 tasks=10 fds=0 t=56300
+SOAK r=109378001 s=564 frames=248098 heap=5280 tasks=10 fds=0 t=56400
+SOAK r=109572001 s=565 frames=248098 heap=5280 tasks=10 fds=0 t=56500
+SOAK r=109768001 s=566 frames=248098 heap=5280 tasks=10 fds=0 t=56600
+SOAK r=109962001 s=567 frames=248098 heap=5280 tasks=10 fds=0 t=56700
+SOAK r=110156001 s=568 frames=248098 heap=5280 tasks=10 fds=0 t=56800
+SOAK r=110352001 s=569 frames=248098 heap=5280 tasks=10 fds=0 t=56900
+SOAK r=110548001 s=570 frames=248098 heap=5280 tasks=10 fds=0 t=57000
+SOAK r=110740001 s=571 frames=248098 heap=5280 tasks=10 fds=0 t=57100
+SOAK r=110936001 s=572 frames=248098 heap=5280 tasks=10 fds=0 t=57200
+SOAK r=111134001 s=573 frames=248098 heap=5280 tasks=10 fds=0 t=57300
+SOAK r=111326001 s=574 frames=248098 heap=5280 tasks=10 fds=0 t=57400
+SOAK r=111522001 s=575 frames=248098 heap=5280 tasks=10 fds=0 t=57500
+SOAK r=111718001 s=576 frames=248098 heap=5280 tasks=10 fds=0 t=57600
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=576 verdict=ok
+SOAK r=111916001 s=577 frames=248098 heap=5280 tasks=10 fds=0 t=57700
+SOAK r=112114001 s=578 frames=248098 heap=5280 tasks=10 fds=0 t=57800
+SOAK r=112308001 s=579 frames=248098 heap=5280 tasks=10 fds=0 t=57900
+SOAK r=112498001 s=580 frames=248098 heap=5280 tasks=10 fds=0 t=58000
+SOAK r=112696001 s=581 frames=248098 heap=5280 tasks=10 fds=0 t=58100
+SOAK r=112896001 s=582 frames=248098 heap=5280 tasks=10 fds=0 t=58200
+SOAK r=113090001 s=583 frames=248098 heap=5280 tasks=10 fds=0 t=58300
+SOAK r=113288001 s=584 frames=248098 heap=5280 tasks=10 fds=0 t=58400
+SOAK r=113486001 s=585 frames=248098 heap=5280 tasks=10 fds=0 t=58500
+SOAK r=113680001 s=586 frames=248098 heap=5280 tasks=10 fds=0 t=58600
+SOAK r=113876001 s=587 frames=248098 heap=5280 tasks=10 fds=0 t=58700
+SOAK r=114072001 s=588 frames=248098 heap=5280 tasks=10 fds=0 t=58800
+SOAK r=114260001 s=589 frames=248098 heap=5280 tasks=10 fds=0 t=58900
+SOAK r=114448001 s=590 frames=248098 heap=5280 tasks=10 fds=0 t=59000
+SOAK r=114646001 s=591 frames=248098 heap=5280 tasks=10 fds=0 t=59100
+SOAK r=114842001 s=592 frames=248098 heap=5280 tasks=10 fds=0 t=59200
+SOAK r=115034001 s=593 frames=248098 heap=5280 tasks=10 fds=0 t=59300
+SOAK r=115226001 s=594 frames=248098 heap=5280 tasks=10 fds=0 t=59400
+SOAK r=115420001 s=595 frames=248098 heap=5280 tasks=10 fds=0 t=59500
+SOAK r=115616001 s=596 frames=248098 heap=5280 tasks=10 fds=0 t=59600
+SOAK r=115812001 s=597 frames=248098 heap=5280 tasks=10 fds=0 t=59700
+SOAK r=116006001 s=598 frames=248098 heap=5280 tasks=10 fds=0 t=59800
+SOAK r=116200001 s=599 frames=248098 heap=5280 tasks=10 fds=0 t=59900
+SOAK r=116396001 s=600 frames=248098 heap=5280 tasks=10 fds=0 t=60000
+SOAK r=116588001 s=601 frames=248098 heap=5280 tasks=10 fds=0 t=60100
+SOAK r=116784001 s=602 frames=248098 heap=5280 tasks=10 fds=0 t=60200
+SOAK r=116976001 s=603 frames=248098 heap=5280 tasks=10 fds=0 t=60300
+SOAK r=117172001 s=604 frames=248098 heap=5280 tasks=10 fds=0 t=60400
+SOAK r=117366001 s=605 frames=248098 heap=5280 tasks=10 fds=0 t=60500
+SOAK r=117556001 s=606 frames=248098 heap=5280 tasks=10 fds=0 t=60600
+SOAK r=117752001 s=607 frames=248098 heap=5280 tasks=10 fds=0 t=60700
+SOAK r=117950001 s=608 frames=248098 heap=5280 tasks=10 fds=0 t=60800
+SOAK r=118142001 s=609 frames=248098 heap=5280 tasks=10 fds=0 t=60900
+SOAK r=118338001 s=610 frames=248098 heap=5280 tasks=10 fds=0 t=61000
+SOAK r=118536001 s=611 frames=248098 heap=5280 tasks=10 fds=0 t=61100
+SOAK r=118722001 s=612 frames=248098 heap=5280 tasks=10 fds=0 t=61200
+SOAK r=118908001 s=613 frames=248098 heap=5280 tasks=10 fds=0 t=61300
+SOAK r=119104001 s=614 frames=248098 heap=5280 tasks=10 fds=0 t=61400
+SOAK r=119296001 s=615 frames=248098 heap=5280 tasks=10 fds=0 t=61500
+SOAK r=119484001 s=616 frames=248098 heap=5280 tasks=10 fds=0 t=61600
+SOAK r=119682001 s=617 frames=248098 heap=5280 tasks=10 fds=0 t=61700
+SOAK r=119872001 s=618 frames=248098 heap=5280 tasks=10 fds=0 t=61800
+SOAK r=120068001 s=619 frames=248098 heap=5280 tasks=10 fds=0 t=61900
+SOAK r=120266001 s=620 frames=248098 heap=5280 tasks=10 fds=0 t=62000
+SOAK r=120458001 s=621 frames=248098 heap=5280 tasks=10 fds=0 t=62100
+SOAK r=120656001 s=622 frames=248098 heap=5280 tasks=10 fds=0 t=62200
+SOAK r=120854001 s=623 frames=248098 heap=5280 tasks=10 fds=0 t=62300
+SOAK r=121048001 s=624 frames=248098 heap=5280 tasks=10 fds=0 t=62400
+SOAK r=121240001 s=625 frames=248098 heap=5280 tasks=10 fds=0 t=62500
+SOAK r=121436001 s=626 frames=248098 heap=5280 tasks=10 fds=0 t=62600
+SOAK r=121634001 s=627 frames=248098 heap=5280 tasks=10 fds=0 t=62700
+SOAK r=121830001 s=628 frames=248098 heap=5280 tasks=10 fds=0 t=62800
+SOAK r=122030001 s=629 frames=248098 heap=5280 tasks=10 fds=0 t=62900
+SOAK r=122224001 s=630 frames=248098 heap=5280 tasks=10 fds=0 t=63000
+SOAK r=122422001 s=631 frames=248098 heap=5280 tasks=10 fds=0 t=63100
+SOAK r=122612001 s=632 frames=248098 heap=5280 tasks=10 fds=0 t=63200
+SOAK r=122804001 s=633 frames=248098 heap=5280 tasks=10 fds=0 t=63300
+SOAK r=122996001 s=634 frames=248098 heap=5280 tasks=10 fds=0 t=63400
+SOAK r=123192001 s=635 frames=248098 heap=5280 tasks=10 fds=0 t=63500
+SOAK r=123386001 s=636 frames=248098 heap=5280 tasks=10 fds=0 t=63600
+SOAK r=123574001 s=637 frames=248098 heap=5280 tasks=10 fds=0 t=63700
+SOAK r=123770001 s=638 frames=248098 heap=5280 tasks=10 fds=0 t=63800
+SOAK r=123964001 s=639 frames=248098 heap=5280 tasks=10 fds=0 t=63900
+SOAK r=124158001 s=640 frames=248098 heap=5280 tasks=10 fds=0 t=64000
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=640 verdict=ok
+SOAK r=124358001 s=641 frames=248098 heap=5280 tasks=10 fds=0 t=64100
+SOAK r=124554001 s=642 frames=248098 heap=5280 tasks=10 fds=0 t=64200
+SOAK r=124748001 s=643 frames=248098 heap=5280 tasks=10 fds=0 t=64300
+SOAK r=124944001 s=644 frames=248098 heap=5280 tasks=10 fds=0 t=64400
+SOAK r=125138001 s=645 frames=248098 heap=5280 tasks=10 fds=0 t=64500
+SOAK r=125334001 s=646 frames=248098 heap=5280 tasks=10 fds=0 t=64600
+SOAK r=125526001 s=647 frames=248098 heap=5280 tasks=10 fds=0 t=64700
+SOAK r=125724001 s=648 frames=248098 heap=5280 tasks=10 fds=0 t=64800
+SOAK r=125912001 s=649 frames=248098 heap=5280 tasks=10 fds=0 t=64900
+SOAK r=126102001 s=650 frames=248098 heap=5280 tasks=10 fds=0 t=65000
+SOAK r=126286001 s=651 frames=248098 heap=5280 tasks=10 fds=0 t=65100
+SOAK r=126482001 s=652 frames=248098 heap=5280 tasks=10 fds=0 t=65200
+SOAK r=126666001 s=653 frames=248098 heap=5280 tasks=10 fds=0 t=65300
+SOAK r=126858001 s=654 frames=248098 heap=5280 tasks=10 fds=0 t=65400
+SOAK r=127050001 s=655 frames=248098 heap=5280 tasks=10 fds=0 t=65500
+SOAK r=127246001 s=656 frames=248098 heap=5280 tasks=10 fds=0 t=65600
+SOAK r=127444001 s=657 frames=248098 heap=5280 tasks=10 fds=0 t=65700
+SOAK r=127626001 s=658 frames=248098 heap=5280 tasks=10 fds=0 t=65800
+SOAK r=127824001 s=659 frames=248098 heap=5280 tasks=10 fds=0 t=65900
+SOAK r=128020001 s=660 frames=248098 heap=5280 tasks=10 fds=0 t=66000
+SOAK r=128212001 s=661 frames=248098 heap=5280 tasks=10 fds=0 t=66100
+SOAK r=128402001 s=662 frames=248098 heap=5280 tasks=10 fds=0 t=66200
+SOAK r=128600001 s=663 frames=248098 heap=5280 tasks=10 fds=0 t=66300
+SOAK r=128796001 s=664 frames=248098 heap=5280 tasks=10 fds=0 t=66400
+SOAK r=128982001 s=665 frames=248098 heap=5280 tasks=10 fds=0 t=66500
+SOAK r=129178001 s=666 frames=248098 heap=5280 tasks=10 fds=0 t=66600
+SOAK r=129372001 s=667 frames=248098 heap=5280 tasks=10 fds=0 t=66700
+SOAK r=129570001 s=668 frames=248098 heap=5280 tasks=10 fds=0 t=66800
+SOAK r=129760001 s=669 frames=248098 heap=5280 tasks=10 fds=0 t=66900
+SOAK r=129950001 s=670 frames=248098 heap=5280 tasks=10 fds=0 t=67000
+SOAK r=130148001 s=671 frames=248098 heap=5280 tasks=10 fds=0 t=67100
+SOAK r=130346001 s=672 frames=248098 heap=5280 tasks=10 fds=0 t=67200
+SOAK r=130542001 s=673 frames=248098 heap=5280 tasks=10 fds=0 t=67300
+SOAK r=130738001 s=674 frames=248098 heap=5280 tasks=10 fds=0 t=67400
+SOAK r=130934001 s=675 frames=248098 heap=5280 tasks=10 fds=0 t=67500
+SOAK r=131132001 s=676 frames=248098 heap=5280 tasks=10 fds=0 t=67600
+SOAK r=131328001 s=677 frames=248098 heap=5280 tasks=10 fds=0 t=67700
+SOAK r=131524001 s=678 frames=248098 heap=5280 tasks=10 fds=0 t=67800
+SOAK r=131718001 s=679 frames=248098 heap=5280 tasks=10 fds=0 t=67900
+SOAK r=131906001 s=680 frames=248098 heap=5280 tasks=10 fds=0 t=68000
+SOAK r=132096001 s=681 frames=248098 heap=5280 tasks=10 fds=0 t=68100
+SOAK r=132288001 s=682 frames=248098 heap=5280 tasks=10 fds=0 t=68200
+SOAK r=132482001 s=683 frames=248098 heap=5280 tasks=10 fds=0 t=68300
+SOAK r=132680001 s=684 frames=248098 heap=5280 tasks=10 fds=0 t=68400
+SOAK r=132880001 s=685 frames=248098 heap=5280 tasks=10 fds=0 t=68500
+SOAK r=133074001 s=686 frames=248098 heap=5280 tasks=10 fds=0 t=68600
+SOAK r=133268001 s=687 frames=248098 heap=5280 tasks=10 fds=0 t=68700
+SOAK r=133458001 s=688 frames=248098 heap=5280 tasks=10 fds=0 t=68800
+SOAK r=133648001 s=689 frames=248098 heap=5280 tasks=10 fds=0 t=68900
+SOAK r=133836001 s=690 frames=248098 heap=5280 tasks=10 fds=0 t=69000
+SOAK r=134032001 s=691 frames=248098 heap=5280 tasks=10 fds=0 t=69100
+SOAK r=134226001 s=692 frames=248098 heap=5280 tasks=10 fds=0 t=69200
+SOAK r=134414001 s=693 frames=248098 heap=5280 tasks=10 fds=0 t=69300
+SOAK r=134598001 s=694 frames=248098 heap=5280 tasks=10 fds=0 t=69400
+SOAK r=134792001 s=695 frames=248098 heap=5280 tasks=10 fds=0 t=69500
+SOAK r=134990001 s=696 frames=248098 heap=5280 tasks=10 fds=0 t=69600
+SOAK r=135182001 s=697 frames=248098 heap=5280 tasks=10 fds=0 t=69701
+SOAK r=135372001 s=698 frames=248098 heap=5280 tasks=10 fds=0 t=69800
+SOAK r=135564001 s=699 frames=248098 heap=5280 tasks=10 fds=0 t=69900
+SOAK r=135752001 s=700 frames=248098 heap=5280 tasks=10 fds=0 t=70000
+SOAK r=135948001 s=701 frames=248098 heap=5280 tasks=10 fds=0 t=70100
+SOAK r=136136001 s=702 frames=248098 heap=5280 tasks=10 fds=0 t=70200
+SOAK r=136330001 s=703 frames=248098 heap=5280 tasks=10 fds=0 t=70300
+SOAK r=136526001 s=704 frames=248098 heap=5280 tasks=10 fds=0 t=70400
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=704 verdict=ok
+SOAK r=136722001 s=705 frames=248098 heap=5280 tasks=10 fds=0 t=70500
+SOAK r=136914001 s=706 frames=248098 heap=5280 tasks=10 fds=0 t=70600
+SOAK r=137110001 s=707 frames=248098 heap=5280 tasks=10 fds=0 t=70700
+SOAK r=137302001 s=708 frames=248098 heap=5280 tasks=10 fds=0 t=70800
+SOAK r=137488001 s=709 frames=248098 heap=5280 tasks=10 fds=0 t=70900
+SOAK r=137682001 s=710 frames=248098 heap=5280 tasks=10 fds=0 t=71000
+SOAK r=137874001 s=711 frames=248098 heap=5280 tasks=10 fds=0 t=71100
+SOAK r=138070001 s=712 frames=248098 heap=5280 tasks=10 fds=0 t=71200
+SOAK r=138270001 s=713 frames=248098 heap=5280 tasks=10 fds=0 t=71300
+SOAK r=138464001 s=714 frames=248098 heap=5280 tasks=10 fds=0 t=71400
+SOAK r=138662001 s=715 frames=248098 heap=5280 tasks=10 fds=0 t=71500
+SOAK r=138856001 s=716 frames=248098 heap=5280 tasks=10 fds=0 t=71600
+SOAK r=139056001 s=717 frames=248098 heap=5280 tasks=10 fds=0 t=71700
+SOAK r=139252001 s=718 frames=248098 heap=5280 tasks=10 fds=0 t=71800
+SOAK r=139444001 s=719 frames=248098 heap=5280 tasks=10 fds=0 t=71900
+SOAK r=139640001 s=720 frames=248098 heap=5280 tasks=10 fds=0 t=72000
+SOAK r=139830001 s=721 frames=248098 heap=5280 tasks=10 fds=0 t=72100
+SOAK r=140028001 s=722 frames=248098 heap=5280 tasks=10 fds=0 t=72200
+SOAK r=140222001 s=723 frames=248098 heap=5280 tasks=10 fds=0 t=72300
+SOAK r=140414001 s=724 frames=248098 heap=5280 tasks=10 fds=0 t=72400
+SOAK r=140606001 s=725 frames=248098 heap=5280 tasks=10 fds=0 t=72500
+SOAK r=140802001 s=726 frames=248098 heap=5280 tasks=10 fds=0 t=72600
+SOAK r=140996001 s=727 frames=248098 heap=5280 tasks=10 fds=0 t=72700
+SOAK r=141180001 s=728 frames=248098 heap=5280 tasks=10 fds=0 t=72800
+SOAK r=141372001 s=729 frames=248098 heap=5280 tasks=10 fds=0 t=72900
+SOAK r=141562001 s=730 frames=248098 heap=5280 tasks=10 fds=0 t=73000
+SOAK r=141754001 s=731 frames=248098 heap=5280 tasks=10 fds=0 t=73100
+SOAK r=141954001 s=732 frames=248098 heap=5280 tasks=10 fds=0 t=73200
+SOAK r=142142001 s=733 frames=248098 heap=5280 tasks=10 fds=0 t=73300
+SOAK r=142342001 s=734 frames=248098 heap=5280 tasks=10 fds=0 t=73400
+SOAK r=142542001 s=735 frames=248098 heap=5280 tasks=10 fds=0 t=73500
+SOAK r=142736001 s=736 frames=248098 heap=5280 tasks=10 fds=0 t=73600
+SOAK r=142922001 s=737 frames=248098 heap=5280 tasks=10 fds=0 t=73700
+SOAK r=143120001 s=738 frames=248098 heap=5280 tasks=10 fds=0 t=73800
+SOAK r=143318001 s=739 frames=248098 heap=5280 tasks=10 fds=0 t=73900
+SOAK r=143512001 s=740 frames=248098 heap=5280 tasks=10 fds=0 t=74000
+SOAK r=143700001 s=741 frames=248098 heap=5280 tasks=10 fds=0 t=74100
+SOAK r=143898001 s=742 frames=248098 heap=5280 tasks=10 fds=0 t=74200
+SOAK r=144086001 s=743 frames=248098 heap=5280 tasks=10 fds=0 t=74300
+SOAK r=144276001 s=744 frames=248098 heap=5280 tasks=10 fds=0 t=74400
+SOAK r=144472001 s=745 frames=248098 heap=5280 tasks=10 fds=0 t=74500
+SOAK r=144666001 s=746 frames=248098 heap=5280 tasks=10 fds=0 t=74600
+SOAK r=144862001 s=747 frames=248098 heap=5280 tasks=10 fds=0 t=74700
+SOAK r=145052001 s=748 frames=248098 heap=5280 tasks=10 fds=0 t=74800
+SOAK r=145246001 s=749 frames=248098 heap=5280 tasks=10 fds=0 t=74900
+SOAK r=145444001 s=750 frames=248098 heap=5280 tasks=10 fds=0 t=75000
+SOAK r=145630001 s=751 frames=248098 heap=5280 tasks=10 fds=0 t=75100
+SOAK r=145818001 s=752 frames=248098 heap=5280 tasks=10 fds=0 t=75200
+SOAK r=146012001 s=753 frames=248098 heap=5280 tasks=10 fds=0 t=75300
+SOAK r=146208001 s=754 frames=248098 heap=5280 tasks=10 fds=0 t=75400
+SOAK r=146406001 s=755 frames=248098 heap=5280 tasks=10 fds=0 t=75500
+SOAK r=146600001 s=756 frames=248098 heap=5280 tasks=10 fds=0 t=75600
+SOAK r=146794001 s=757 frames=248098 heap=5280 tasks=10 fds=0 t=75701
+SOAK r=146988001 s=758 frames=248098 heap=5280 tasks=10 fds=0 t=75800
+SOAK r=147188001 s=759 frames=248098 heap=5280 tasks=10 fds=0 t=75900
+SOAK r=147384001 s=760 frames=248098 heap=5280 tasks=10 fds=0 t=76000
+SOAK r=147576001 s=761 frames=248098 heap=5280 tasks=10 fds=0 t=76100
+SOAK r=147774001 s=762 frames=248098 heap=5280 tasks=10 fds=0 t=76200
+SOAK r=147968001 s=763 frames=248098 heap=5280 tasks=10 fds=0 t=76300
+SOAK r=148164001 s=764 frames=248098 heap=5280 tasks=10 fds=0 t=76400
+SOAK r=148360001 s=765 frames=248098 heap=5280 tasks=10 fds=0 t=76500
+SOAK r=148560001 s=766 frames=248098 heap=5280 tasks=10 fds=0 t=76600
+SOAK r=148754001 s=767 frames=248098 heap=5280 tasks=10 fds=0 t=76700
+SOAK r=148944001 s=768 frames=248098 heap=5280 tasks=10 fds=0 t=76800
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=768 verdict=ok
+SOAK r=149144001 s=769 frames=248098 heap=5280 tasks=10 fds=0 t=76900
+SOAK r=149334001 s=770 frames=248098 heap=5280 tasks=10 fds=0 t=77000
+SOAK r=149524001 s=771 frames=248098 heap=5280 tasks=10 fds=0 t=77100
+SOAK r=149720001 s=772 frames=248098 heap=5280 tasks=10 fds=0 t=77200
+SOAK r=149912001 s=773 frames=248098 heap=5280 tasks=10 fds=0 t=77300
+SOAK r=150110001 s=774 frames=248098 heap=5280 tasks=10 fds=0 t=77400
+SOAK r=150300001 s=775 frames=248098 heap=5280 tasks=10 fds=0 t=77500
+SOAK r=150500001 s=776 frames=248098 heap=5280 tasks=10 fds=0 t=77600
+SOAK r=150696001 s=777 frames=248098 heap=5280 tasks=10 fds=0 t=77700
+SOAK r=150892001 s=778 frames=248098 heap=5280 tasks=10 fds=0 t=77800
+SOAK r=151084001 s=779 frames=248098 heap=5280 tasks=10 fds=0 t=77900
+SOAK r=151276001 s=780 frames=248098 heap=5280 tasks=10 fds=0 t=78000
+SOAK r=151468001 s=781 frames=248098 heap=5280 tasks=10 fds=0 t=78100
+SOAK r=151664001 s=782 frames=248098 heap=5280 tasks=10 fds=0 t=78200
+SOAK r=151860001 s=783 frames=248098 heap=5280 tasks=10 fds=0 t=78300
+SOAK r=152056001 s=784 frames=248098 heap=5280 tasks=10 fds=0 t=78400
+SOAK r=152250001 s=785 frames=248098 heap=5280 tasks=10 fds=0 t=78500
+SOAK r=152446001 s=786 frames=248098 heap=5280 tasks=10 fds=0 t=78600
+SOAK r=152640001 s=787 frames=248098 heap=5280 tasks=10 fds=0 t=78700
+SOAK r=152838001 s=788 frames=248098 heap=5280 tasks=10 fds=0 t=78800
+SOAK r=153032001 s=789 frames=248098 heap=5280 tasks=10 fds=0 t=78900
+SOAK r=153218001 s=790 frames=248098 heap=5280 tasks=10 fds=0 t=79000
+SOAK r=153414001 s=791 frames=248098 heap=5280 tasks=10 fds=0 t=79100
+SOAK r=153614001 s=792 frames=248098 heap=5280 tasks=10 fds=0 t=79200
+SOAK r=153804001 s=793 frames=248098 heap=5280 tasks=10 fds=0 t=79300
+SOAK r=153996001 s=794 frames=248098 heap=5280 tasks=10 fds=0 t=79400
+SOAK r=154186001 s=795 frames=248098 heap=5280 tasks=10 fds=0 t=79500
+SOAK r=154378001 s=796 frames=248098 heap=5280 tasks=10 fds=0 t=79600
+SOAK r=154574001 s=797 frames=248098 heap=5280 tasks=10 fds=0 t=79700
+SOAK r=154768001 s=798 frames=248098 heap=5280 tasks=10 fds=0 t=79800
+SOAK r=154964001 s=799 frames=248098 heap=5280 tasks=10 fds=0 t=79900
+SOAK r=155152001 s=800 frames=248098 heap=5280 tasks=10 fds=0 t=80000
+SOAK r=155348001 s=801 frames=248098 heap=5280 tasks=10 fds=0 t=80100
+SOAK r=155546001 s=802 frames=248098 heap=5280 tasks=10 fds=0 t=80201
+SOAK r=155736001 s=803 frames=248098 heap=5280 tasks=10 fds=0 t=80300
+SOAK r=155930001 s=804 frames=248098 heap=5280 tasks=10 fds=0 t=80400
+SOAK r=156122001 s=805 frames=248098 heap=5280 tasks=10 fds=0 t=80501
+SOAK r=156316001 s=806 frames=248098 heap=5280 tasks=10 fds=0 t=80600
+SOAK r=156512001 s=807 frames=248098 heap=5280 tasks=10 fds=0 t=80700
+SOAK r=156704001 s=808 frames=248098 heap=5280 tasks=10 fds=0 t=80800
+SOAK r=156894001 s=809 frames=248098 heap=5280 tasks=10 fds=0 t=80900
+SOAK r=157088001 s=810 frames=248098 heap=5280 tasks=10 fds=0 t=81000
+SOAK r=157284001 s=811 frames=248098 heap=5280 tasks=10 fds=0 t=81100
+SOAK r=157478001 s=812 frames=248098 heap=5280 tasks=10 fds=0 t=81200
+SOAK r=157674001 s=813 frames=248098 heap=5280 tasks=10 fds=0 t=81300
+SOAK r=157870001 s=814 frames=248098 heap=5280 tasks=10 fds=0 t=81400
+SOAK r=158064001 s=815 frames=248098 heap=5280 tasks=10 fds=0 t=81500
+SOAK r=158258001 s=816 frames=248098 heap=5280 tasks=10 fds=0 t=81600
+SOAK r=158456001 s=817 frames=248098 heap=5280 tasks=10 fds=0 t=81700
+SOAK r=158644001 s=818 frames=248098 heap=5280 tasks=10 fds=0 t=81800
+SOAK r=158842001 s=819 frames=248098 heap=5280 tasks=10 fds=0 t=81900
+SOAK r=159038001 s=820 frames=248098 heap=5280 tasks=10 fds=0 t=82000
+SOAK r=159232001 s=821 frames=248098 heap=5280 tasks=10 fds=0 t=82100
+SOAK r=159426001 s=822 frames=248098 heap=5280 tasks=10 fds=0 t=82200
+SOAK r=159622001 s=823 frames=248098 heap=5280 tasks=10 fds=0 t=82300
+SOAK r=159818001 s=824 frames=248098 heap=5280 tasks=10 fds=0 t=82400
+SOAK r=160016001 s=825 frames=248098 heap=5280 tasks=10 fds=0 t=82500
+SOAK r=160208001 s=826 frames=248098 heap=5280 tasks=10 fds=0 t=82600
+SOAK r=160406001 s=827 frames=248098 heap=5280 tasks=10 fds=0 t=82700
+SOAK r=160600001 s=828 frames=248098 heap=5280 tasks=10 fds=0 t=82800
+SOAK r=160792001 s=829 frames=248098 heap=5280 tasks=10 fds=0 t=82900
+SOAK r=160990001 s=830 frames=248098 heap=5280 tasks=10 fds=0 t=83000
+SOAK r=161186001 s=831 frames=248098 heap=5280 tasks=10 fds=0 t=83100
+SOAK r=161374001 s=832 frames=248098 heap=5280 tasks=10 fds=0 t=83201
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=832 verdict=ok
+SOAK r=161564001 s=833 frames=248098 heap=5280 tasks=10 fds=0 t=83300
+SOAK r=161760001 s=834 frames=248098 heap=5280 tasks=10 fds=0 t=83400
+SOAK r=161960001 s=835 frames=248098 heap=5280 tasks=10 fds=0 t=83500
+SOAK r=162150001 s=836 frames=248098 heap=5280 tasks=10 fds=0 t=83600
+SOAK r=162346001 s=837 frames=248098 heap=5280 tasks=10 fds=0 t=83700
+SOAK r=162542001 s=838 frames=248098 heap=5280 tasks=10 fds=0 t=83800
+SOAK r=162734001 s=839 frames=248098 heap=5280 tasks=10 fds=0 t=83900
+SOAK r=162926001 s=840 frames=248098 heap=5280 tasks=10 fds=0 t=84000
+SOAK r=163122001 s=841 frames=248098 heap=5280 tasks=10 fds=0 t=84100
+SOAK r=163314001 s=842 frames=248098 heap=5280 tasks=10 fds=0 t=84200
+SOAK r=163508001 s=843 frames=248098 heap=5280 tasks=10 fds=0 t=84300
+SOAK r=163700001 s=844 frames=248098 heap=5280 tasks=10 fds=0 t=84400
+SOAK r=163888001 s=845 frames=248098 heap=5280 tasks=10 fds=0 t=84500
+SOAK r=164080001 s=846 frames=248098 heap=5280 tasks=10 fds=0 t=84600
+SOAK r=164274001 s=847 frames=248098 heap=5280 tasks=10 fds=0 t=84700
+SOAK r=164470001 s=848 frames=248098 heap=5280 tasks=10 fds=0 t=84800
+SOAK r=164664001 s=849 frames=248098 heap=5280 tasks=10 fds=0 t=84900
+SOAK r=164858001 s=850 frames=248098 heap=5280 tasks=10 fds=0 t=85000
+SOAK r=165052001 s=851 frames=248098 heap=5280 tasks=10 fds=0 t=85100
+SOAK r=165246001 s=852 frames=248098 heap=5280 tasks=10 fds=0 t=85200
+SOAK r=165442001 s=853 frames=248098 heap=5280 tasks=10 fds=0 t=85300
+SOAK r=165640001 s=854 frames=248098 heap=5280 tasks=10 fds=0 t=85400
+SOAK r=165834001 s=855 frames=248098 heap=5280 tasks=10 fds=0 t=85500
+SOAK r=166026001 s=856 frames=248098 heap=5280 tasks=10 fds=0 t=85601
+SOAK r=166218001 s=857 frames=248098 heap=5280 tasks=10 fds=0 t=85700
+SOAK r=166416001 s=858 frames=248098 heap=5280 tasks=10 fds=0 t=85800
+SOAK r=166612001 s=859 frames=248098 heap=5280 tasks=10 fds=0 t=85901
+SOAK r=166802001 s=860 frames=248098 heap=5280 tasks=10 fds=0 t=86000
+SOAK r=166996001 s=861 frames=248098 heap=5280 tasks=10 fds=0 t=86100
+SOAK r=167182001 s=862 frames=248098 heap=5280 tasks=10 fds=0 t=86200
+SOAK r=167378001 s=863 frames=248098 heap=5280 tasks=10 fds=0 t=86300
+SOAK r=167574001 s=864 frames=248098 heap=5280 tasks=10 fds=0 t=86400
+SOAK r=167766001 s=865 frames=248098 heap=5280 tasks=10 fds=0 t=86500
+SOAK r=167962001 s=866 frames=248098 heap=5280 tasks=10 fds=0 t=86600
+SOAK r=168154001 s=867 frames=248098 heap=5280 tasks=10 fds=0 t=86700
+SOAK r=168350001 s=868 frames=248098 heap=5280 tasks=10 fds=0 t=86800
+SOAK r=168542001 s=869 frames=248098 heap=5280 tasks=10 fds=0 t=86900
+SOAK r=168742001 s=870 frames=248098 heap=5280 tasks=10 fds=0 t=87000
+SOAK r=168930001 s=871 frames=248098 heap=5280 tasks=10 fds=0 t=87100
+SOAK r=169130001 s=872 frames=248098 heap=5280 tasks=10 fds=0 t=87200
+SOAK r=169322001 s=873 frames=248098 heap=5280 tasks=10 fds=0 t=87300
+SOAK r=169518001 s=874 frames=248098 heap=5280 tasks=10 fds=0 t=87400
+SOAK r=169714001 s=875 frames=248098 heap=5280 tasks=10 fds=0 t=87500
+SOAK r=169908001 s=876 frames=248098 heap=5280 tasks=10 fds=0 t=87600
+SOAK r=170100001 s=877 frames=248098 heap=5280 tasks=10 fds=0 t=87700
+SOAK r=170290001 s=878 frames=248098 heap=5280 tasks=10 fds=0 t=87800
+SOAK r=170490001 s=879 frames=248098 heap=5280 tasks=10 fds=0 t=87900
+SOAK r=170684001 s=880 frames=248098 heap=5280 tasks=10 fds=0 t=88000
+SOAK r=170876001 s=881 frames=248098 heap=5280 tasks=10 fds=0 t=88100
+SOAK r=171072001 s=882 frames=248098 heap=5280 tasks=10 fds=0 t=88200
+SOAK r=171262001 s=883 frames=248098 heap=5280 tasks=10 fds=0 t=88300
+SOAK r=171454001 s=884 frames=248098 heap=5280 tasks=10 fds=0 t=88400
+SOAK r=171648001 s=885 frames=248098 heap=5280 tasks=10 fds=0 t=88500
+SOAK r=171844001 s=886 frames=248098 heap=5280 tasks=10 fds=0 t=88600
+SOAK r=172042001 s=887 frames=248098 heap=5280 tasks=10 fds=0 t=88700
+SOAK r=172240001 s=888 frames=248098 heap=5280 tasks=10 fds=0 t=88800
+SOAK r=172428001 s=889 frames=248098 heap=5280 tasks=10 fds=0 t=88900
+SOAK r=172618001 s=890 frames=248098 heap=5280 tasks=10 fds=0 t=89000
+SOAK r=172812001 s=891 frames=248098 heap=5280 tasks=10 fds=0 t=89100
+SOAK r=173008001 s=892 frames=248098 heap=5280 tasks=10 fds=0 t=89200
+SOAK r=173206001 s=893 frames=248098 heap=5280 tasks=10 fds=0 t=89300
+SOAK r=173398001 s=894 frames=248098 heap=5280 tasks=10 fds=0 t=89400
+SOAK r=173592001 s=895 frames=248098 heap=5280 tasks=10 fds=0 t=89500
+SOAK r=173784001 s=896 frames=248098 heap=5280 tasks=10 fds=0 t=89600
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=896 verdict=ok
+SOAK r=173972001 s=897 frames=248098 heap=5280 tasks=10 fds=0 t=89700
+SOAK r=174170001 s=898 frames=248098 heap=5280 tasks=10 fds=0 t=89800
+SOAK r=174362001 s=899 frames=248098 heap=5280 tasks=10 fds=0 t=89900
+SOAK r=174556001 s=900 frames=248098 heap=5280 tasks=10 fds=0 t=90000
+SOAK r=174750001 s=901 frames=248098 heap=5280 tasks=10 fds=0 t=90100
+SOAK r=174946001 s=902 frames=248098 heap=5280 tasks=10 fds=0 t=90200
+SOAK r=175140001 s=903 frames=248098 heap=5280 tasks=10 fds=0 t=90300
+SOAK r=175336001 s=904 frames=248098 heap=5280 tasks=10 fds=0 t=90400
+SOAK r=175528001 s=905 frames=248098 heap=5280 tasks=10 fds=0 t=90500
+SOAK r=175722001 s=906 frames=248098 heap=5280 tasks=10 fds=0 t=90600
+SOAK r=175918001 s=907 frames=248098 heap=5280 tasks=10 fds=0 t=90700
+SOAK r=176110001 s=908 frames=248098 heap=5280 tasks=10 fds=0 t=90800
+SOAK r=176304001 s=909 frames=248098 heap=5280 tasks=10 fds=0 t=90900
+SOAK r=176504001 s=910 frames=248098 heap=5280 tasks=10 fds=0 t=91000
+SOAK r=176698001 s=911 frames=248098 heap=5280 tasks=10 fds=0 t=91100
+SOAK r=176892001 s=912 frames=248098 heap=5280 tasks=10 fds=0 t=91200
+SOAK r=177078001 s=913 frames=248098 heap=5280 tasks=10 fds=0 t=91300
+SOAK r=177268001 s=914 frames=248098 heap=5280 tasks=10 fds=0 t=91400
+SOAK r=177462001 s=915 frames=248098 heap=5280 tasks=10 fds=0 t=91500
+SOAK r=177654001 s=916 frames=248098 heap=5280 tasks=10 fds=0 t=91600
+SOAK r=177850001 s=917 frames=248098 heap=5280 tasks=10 fds=0 t=91700
+SOAK r=178038001 s=918 frames=248098 heap=5280 tasks=10 fds=0 t=91800
+SOAK r=178234001 s=919 frames=248098 heap=5280 tasks=10 fds=0 t=91900
+SOAK r=178428001 s=920 frames=248098 heap=5280 tasks=10 fds=0 t=92000
+SOAK r=178628001 s=921 frames=248098 heap=5280 tasks=10 fds=0 t=92100
+SOAK r=178820001 s=922 frames=248098 heap=5280 tasks=10 fds=0 t=92200
+SOAK r=179010001 s=923 frames=248098 heap=5280 tasks=10 fds=0 t=92300
+SOAK r=179208001 s=924 frames=248098 heap=5280 tasks=10 fds=0 t=92400
+SOAK r=179400001 s=925 frames=248098 heap=5280 tasks=10 fds=0 t=92500
+SOAK r=179594001 s=926 frames=248098 heap=5280 tasks=10 fds=0 t=92600
+SOAK r=179790001 s=927 frames=248098 heap=5280 tasks=10 fds=0 t=92700
+SOAK r=179990001 s=928 frames=248098 heap=5280 tasks=10 fds=0 t=92800
+SOAK r=180180001 s=929 frames=248098 heap=5280 tasks=10 fds=0 t=92900
+SOAK r=180374001 s=930 frames=248098 heap=5280 tasks=10 fds=0 t=93000
+SOAK r=180572001 s=931 frames=248098 heap=5280 tasks=10 fds=0 t=93100
+SOAK r=180768001 s=932 frames=248098 heap=5280 tasks=10 fds=0 t=93200
+SOAK r=180960001 s=933 frames=248098 heap=5280 tasks=10 fds=0 t=93300
+SOAK r=181152001 s=934 frames=248098 heap=5280 tasks=10 fds=0 t=93400
+SOAK r=181350001 s=935 frames=248098 heap=5280 tasks=10 fds=0 t=93500
+SOAK r=181548001 s=936 frames=248098 heap=5280 tasks=10 fds=0 t=93600
+SOAK r=181740001 s=937 frames=248098 heap=5280 tasks=10 fds=0 t=93700
+SOAK r=181934001 s=938 frames=248098 heap=5280 tasks=10 fds=0 t=93800
+SOAK r=182122001 s=939 frames=248098 heap=5280 tasks=10 fds=0 t=93900
+SOAK r=182314001 s=940 frames=248098 heap=5280 tasks=10 fds=0 t=94000
+SOAK r=182500001 s=941 frames=248098 heap=5280 tasks=10 fds=0 t=94100
+SOAK r=182696001 s=942 frames=248098 heap=5280 tasks=10 fds=0 t=94200
+SOAK r=182884001 s=943 frames=248098 heap=5280 tasks=10 fds=0 t=94300
+SOAK r=183082001 s=944 frames=248098 heap=5280 tasks=10 fds=0 t=94400
+SOAK r=183282001 s=945 frames=248098 heap=5280 tasks=10 fds=0 t=94500
+SOAK r=183476001 s=946 frames=248098 heap=5280 tasks=10 fds=0 t=94600
+SOAK r=183666001 s=947 frames=248098 heap=5280 tasks=10 fds=0 t=94700
+SOAK r=183860001 s=948 frames=248098 heap=5280 tasks=10 fds=0 t=94800
+SOAK r=184060001 s=949 frames=248098 heap=5280 tasks=10 fds=0 t=94900
+SOAK r=184254001 s=950 frames=248098 heap=5280 tasks=10 fds=0 t=95000
+SOAK r=184448001 s=951 frames=248098 heap=5280 tasks=10 fds=0 t=95100
+SOAK r=184640001 s=952 frames=248098 heap=5280 tasks=10 fds=0 t=95200
+SOAK r=184834001 s=953 frames=248098 heap=5280 tasks=10 fds=0 t=95300
+SOAK r=185034001 s=954 frames=248098 heap=5280 tasks=10 fds=0 t=95400
+SOAK r=185230001 s=955 frames=248098 heap=5280 tasks=10 fds=0 t=95500
+SOAK r=185422001 s=956 frames=248098 heap=5280 tasks=10 fds=0 t=95600
+SOAK r=185614001 s=957 frames=248098 heap=5280 tasks=10 fds=0 t=95700
+SOAK r=185812001 s=958 frames=248098 heap=5280 tasks=10 fds=0 t=95800
+SOAK r=186010001 s=959 frames=248098 heap=5280 tasks=10 fds=0 t=95900
+SOAK r=186198001 s=960 frames=248098 heap=5280 tasks=10 fds=0 t=96000
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=960 verdict=ok
+SOAK r=186396001 s=961 frames=248098 heap=5280 tasks=10 fds=0 t=96100
+SOAK r=186592001 s=962 frames=248098 heap=5280 tasks=10 fds=0 t=96200
+SOAK r=186784001 s=963 frames=248098 heap=5280 tasks=10 fds=0 t=96300
+SOAK r=186970001 s=964 frames=248098 heap=5280 tasks=10 fds=0 t=96400
+SOAK r=187164001 s=965 frames=248098 heap=5280 tasks=10 fds=0 t=96500
+SOAK r=187360001 s=966 frames=248098 heap=5280 tasks=10 fds=0 t=96600
+SOAK r=187552001 s=967 frames=248098 heap=5280 tasks=10 fds=0 t=96701
+SOAK r=187736001 s=968 frames=248098 heap=5280 tasks=10 fds=0 t=96800
+SOAK r=187928001 s=969 frames=248098 heap=5280 tasks=10 fds=0 t=96900
+SOAK r=188124001 s=970 frames=248098 heap=5280 tasks=10 fds=0 t=97000
+SOAK r=188320001 s=971 frames=248098 heap=5280 tasks=10 fds=0 t=97100
+SOAK r=188512001 s=972 frames=248098 heap=5280 tasks=10 fds=0 t=97200
+SOAK r=188700001 s=973 frames=248098 heap=5280 tasks=10 fds=0 t=97300
+SOAK r=188892001 s=974 frames=248098 heap=5280 tasks=10 fds=0 t=97400
+SOAK r=189086001 s=975 frames=248098 heap=5280 tasks=10 fds=0 t=97500
+SOAK r=189284001 s=976 frames=248098 heap=5280 tasks=10 fds=0 t=97600
+SOAK r=189482001 s=977 frames=248098 heap=5280 tasks=10 fds=0 t=97700
+SOAK r=189680001 s=978 frames=248098 heap=5280 tasks=10 fds=0 t=97800
+SOAK r=189872001 s=979 frames=248098 heap=5280 tasks=10 fds=0 t=97900
+SOAK r=190068001 s=980 frames=248098 heap=5280 tasks=10 fds=0 t=98000
+SOAK r=190266001 s=981 frames=248098 heap=5280 tasks=10 fds=0 t=98100
+SOAK r=190454001 s=982 frames=248098 heap=5280 tasks=10 fds=0 t=98200
+SOAK r=190650001 s=983 frames=248098 heap=5280 tasks=10 fds=0 t=98300
+SOAK r=190842001 s=984 frames=248098 heap=5280 tasks=10 fds=0 t=98400
+SOAK r=191032001 s=985 frames=248098 heap=5280 tasks=10 fds=0 t=98500
+SOAK r=191226001 s=986 frames=248098 heap=5280 tasks=10 fds=0 t=98600
+SOAK r=191422001 s=987 frames=248098 heap=5280 tasks=10 fds=0 t=98701
+SOAK r=191612001 s=988 frames=248098 heap=5280 tasks=10 fds=0 t=98800
+SOAK r=191810001 s=989 frames=248098 heap=5280 tasks=10 fds=0 t=98900
+SOAK r=192004001 s=990 frames=248098 heap=5280 tasks=10 fds=0 t=99000
+SOAK r=192198001 s=991 frames=248098 heap=5280 tasks=10 fds=0 t=99100
+SOAK r=192390001 s=992 frames=248098 heap=5280 tasks=10 fds=0 t=99200
+SOAK r=192580001 s=993 frames=248098 heap=5280 tasks=10 fds=0 t=99300
+SOAK r=192776001 s=994 frames=248098 heap=5280 tasks=10 fds=0 t=99400
+SOAK r=192968001 s=995 frames=248098 heap=5280 tasks=10 fds=0 t=99500
+SOAK r=193164001 s=996 frames=248098 heap=5280 tasks=10 fds=0 t=99600
+SOAK r=193358001 s=997 frames=248098 heap=5280 tasks=10 fds=0 t=99701
+SOAK r=193550001 s=998 frames=248098 heap=5280 tasks=10 fds=0 t=99800
+SOAK r=193742001 s=999 frames=248098 heap=5280 tasks=10 fds=0 t=99900
+SOAK r=193936001 s=1000 frames=248098 heap=5280 tasks=10 fds=0 t=100000
+SOAK r=194128001 s=1001 frames=248098 heap=5280 tasks=10 fds=0 t=100100
+SOAK r=194322001 s=1002 frames=248098 heap=5280 tasks=10 fds=0 t=100200
+SOAK r=194514001 s=1003 frames=248098 heap=5280 tasks=10 fds=0 t=100300
+SOAK r=194706001 s=1004 frames=248098 heap=5280 tasks=10 fds=0 t=100401
+SOAK r=194896001 s=1005 frames=248098 heap=5280 tasks=10 fds=0 t=100500
+SOAK r=195086001 s=1006 frames=248098 heap=5280 tasks=10 fds=0 t=100600
+SOAK r=195278001 s=1007 frames=248098 heap=5280 tasks=10 fds=0 t=100700
+SOAK r=195474001 s=1008 frames=248098 heap=5280 tasks=10 fds=0 t=100801
+SOAK r=195668001 s=1009 frames=248098 heap=5280 tasks=10 fds=0 t=100900
+SOAK r=195852001 s=1010 frames=248098 heap=5280 tasks=10 fds=0 t=101000
+SOAK r=196040001 s=1011 frames=248098 heap=5280 tasks=10 fds=0 t=101100
+SOAK r=196226001 s=1012 frames=248098 heap=5280 tasks=10 fds=0 t=101200
+SOAK r=196418001 s=1013 frames=248098 heap=5280 tasks=10 fds=0 t=101301
+SOAK r=196612001 s=1014 frames=248098 heap=5280 tasks=10 fds=0 t=101400
+SOAK r=196794001 s=1015 frames=248098 heap=5280 tasks=10 fds=0 t=101500
+SOAK r=196988001 s=1016 frames=248098 heap=5280 tasks=10 fds=0 t=101600
+SOAK r=197180001 s=1017 frames=248098 heap=5280 tasks=10 fds=0 t=101700
+SOAK r=197376001 s=1018 frames=248098 heap=5280 tasks=10 fds=0 t=101800
+SOAK r=197568001 s=1019 frames=248098 heap=5280 tasks=10 fds=0 t=101900
+SOAK r=197756001 s=1020 frames=248098 heap=5280 tasks=10 fds=0 t=102000
+SOAK r=197952001 s=1021 frames=248098 heap=5280 tasks=10 fds=0 t=102100
+SOAK r=198146001 s=1022 frames=248098 heap=5280 tasks=10 fds=0 t=102200
+SOAK r=198334001 s=1023 frames=248098 heap=5280 tasks=10 fds=0 t=102300
+SOAK r=198528001 s=1024 frames=248098 heap=5280 tasks=10 fds=0 t=102400
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=1024 verdict=ok
+SOAK r=198718001 s=1025 frames=248098 heap=5280 tasks=10 fds=0 t=102500
+SOAK r=198914001 s=1026 frames=248098 heap=5280 tasks=10 fds=0 t=102600
+SOAK r=199104001 s=1027 frames=248098 heap=5280 tasks=10 fds=0 t=102700
+SOAK r=199294001 s=1028 frames=248098 heap=5280 tasks=10 fds=0 t=102800
+SOAK r=199484001 s=1029 frames=248098 heap=5280 tasks=10 fds=0 t=102900
+SOAK r=199680001 s=1030 frames=248098 heap=5280 tasks=10 fds=0 t=103000
+SOAK r=199872001 s=1031 frames=248098 heap=5280 tasks=10 fds=0 t=103100
+SOAK r=200066001 s=1032 frames=248098 heap=5280 tasks=10 fds=0 t=103200
+SOAK r=200256001 s=1033 frames=248098 heap=5280 tasks=10 fds=0 t=103300
+SOAK r=200444001 s=1034 frames=248098 heap=5280 tasks=10 fds=0 t=103400
+SOAK r=200630001 s=1035 frames=248098 heap=5280 tasks=10 fds=0 t=103500
+SOAK r=200820001 s=1036 frames=248098 heap=5280 tasks=10 fds=0 t=103600
+SOAK r=201008001 s=1037 frames=248098 heap=5280 tasks=10 fds=0 t=103700
+SOAK r=201200001 s=1038 frames=248098 heap=5280 tasks=10 fds=0 t=103800
+SOAK r=201386001 s=1039 frames=248098 heap=5280 tasks=10 fds=0 t=103900
+SOAK r=201584001 s=1040 frames=248098 heap=5280 tasks=10 fds=0 t=104000
+SOAK r=201782001 s=1041 frames=248098 heap=5280 tasks=10 fds=0 t=104100
+SOAK r=201980001 s=1042 frames=248098 heap=5280 tasks=10 fds=0 t=104200
+SOAK r=202172001 s=1043 frames=248098 heap=5280 tasks=10 fds=0 t=104300
+SOAK r=202364001 s=1044 frames=248098 heap=5280 tasks=10 fds=0 t=104400
+SOAK r=202554001 s=1045 frames=248098 heap=5280 tasks=10 fds=0 t=104500
+SOAK r=202746001 s=1046 frames=248098 heap=5280 tasks=10 fds=0 t=104600
+SOAK r=202938001 s=1047 frames=248098 heap=5280 tasks=10 fds=0 t=104700
+SOAK r=203124001 s=1048 frames=248098 heap=5280 tasks=10 fds=0 t=104800
+SOAK r=203316001 s=1049 frames=248098 heap=5280 tasks=10 fds=0 t=104900
+SOAK r=203506001 s=1050 frames=248098 heap=5280 tasks=10 fds=0 t=105000
+SOAK r=203702001 s=1051 frames=248098 heap=5280 tasks=10 fds=0 t=105100
+SOAK r=203894001 s=1052 frames=248098 heap=5280 tasks=10 fds=0 t=105200
+SOAK r=204084001 s=1053 frames=248098 heap=5280 tasks=10 fds=0 t=105300
+SOAK r=204278001 s=1054 frames=248098 heap=5280 tasks=10 fds=0 t=105401
+SOAK r=204470001 s=1055 frames=248098 heap=5280 tasks=10 fds=0 t=105500
+SOAK r=204664001 s=1056 frames=248098 heap=5280 tasks=10 fds=0 t=105600
+SOAK r=204854001 s=1057 frames=248098 heap=5280 tasks=10 fds=0 t=105700
+SOAK r=205048001 s=1058 frames=248098 heap=5280 tasks=10 fds=0 t=105800
+SOAK r=205240001 s=1059 frames=248098 heap=5280 tasks=10 fds=0 t=105900
+SOAK r=205436001 s=1060 frames=248098 heap=5280 tasks=10 fds=0 t=106000
+SOAK r=205626001 s=1061 frames=248098 heap=5280 tasks=10 fds=0 t=106100
+SOAK r=205824001 s=1062 frames=248098 heap=5280 tasks=10 fds=0 t=106200
+SOAK r=206020001 s=1063 frames=248098 heap=5280 tasks=10 fds=0 t=106300
+SOAK r=206214001 s=1064 frames=248098 heap=5280 tasks=10 fds=0 t=106400
+SOAK r=206404001 s=1065 frames=248098 heap=5280 tasks=10 fds=0 t=106500
+SOAK r=206594001 s=1066 frames=248098 heap=5280 tasks=10 fds=0 t=106600
+SOAK r=206788001 s=1067 frames=248098 heap=5280 tasks=10 fds=0 t=106700
+SOAK r=206986001 s=1068 frames=248098 heap=5280 tasks=10 fds=0 t=106800
+SOAK r=207178001 s=1069 frames=248098 heap=5280 tasks=10 fds=0 t=106900
+SOAK r=207368001 s=1070 frames=248098 heap=5280 tasks=10 fds=0 t=107000
+SOAK r=207562001 s=1071 frames=248098 heap=5280 tasks=10 fds=0 t=107100
+SOAK r=207758001 s=1072 frames=248098 heap=5280 tasks=10 fds=0 t=107200
+SOAK r=207954001 s=1073 frames=248098 heap=5280 tasks=10 fds=0 t=107300
+SOAK r=208144001 s=1074 frames=248098 heap=5280 tasks=10 fds=0 t=107400
+SOAK r=208336001 s=1075 frames=248098 heap=5280 tasks=10 fds=0 t=107500
+SOAK r=208524001 s=1076 frames=248098 heap=5280 tasks=10 fds=0 t=107600
+SOAK r=208718001 s=1077 frames=248098 heap=5280 tasks=10 fds=0 t=107700
+SOAK r=208906001 s=1078 frames=248098 heap=5280 tasks=10 fds=0 t=107800
+SOAK r=209092001 s=1079 frames=248098 heap=5280 tasks=10 fds=0 t=107900
+SOAK r=209288001 s=1080 frames=248098 heap=5280 tasks=10 fds=0 t=108000
+SOAK r=209478001 s=1081 frames=248098 heap=5280 tasks=10 fds=0 t=108100
+SOAK r=209668001 s=1082 frames=248098 heap=5280 tasks=10 fds=0 t=108200
+SOAK r=209860001 s=1083 frames=248098 heap=5280 tasks=10 fds=0 t=108300
+SOAK r=210054001 s=1084 frames=248098 heap=5280 tasks=10 fds=0 t=108400
+SOAK r=210240001 s=1085 frames=248098 heap=5280 tasks=10 fds=0 t=108500
+SOAK r=210432001 s=1086 frames=248098 heap=5280 tasks=10 fds=0 t=108600
+SOAK r=210624001 s=1087 frames=248098 heap=5280 tasks=10 fds=0 t=108700
+SOAK r=210820001 s=1088 frames=248098 heap=5280 tasks=10 fds=0 t=108800
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=1088 verdict=ok
+SOAK r=211010001 s=1089 frames=248098 heap=5280 tasks=10 fds=0 t=108900
+SOAK r=211202001 s=1090 frames=248098 heap=5280 tasks=10 fds=0 t=109000
+SOAK r=211394001 s=1091 frames=248098 heap=5280 tasks=10 fds=0 t=109100
+SOAK r=211580001 s=1092 frames=248098 heap=5280 tasks=10 fds=0 t=109200
+SOAK r=211766001 s=1093 frames=248098 heap=5280 tasks=10 fds=0 t=109300
+SOAK r=211964001 s=1094 frames=248098 heap=5280 tasks=10 fds=0 t=109400
+SOAK r=212148001 s=1095 frames=248098 heap=5280 tasks=10 fds=0 t=109500
+SOAK r=212338001 s=1096 frames=248098 heap=5280 tasks=10 fds=0 t=109600
+SOAK r=212530001 s=1097 frames=248098 heap=5280 tasks=10 fds=0 t=109700
+SOAK r=212722001 s=1098 frames=248098 heap=5280 tasks=10 fds=0 t=109800
+SOAK r=212916001 s=1099 frames=248098 heap=5280 tasks=10 fds=0 t=109900
+SOAK r=213110001 s=1100 frames=248098 heap=5280 tasks=10 fds=0 t=110000
+SOAK r=213308001 s=1101 frames=248098 heap=5280 tasks=10 fds=0 t=110100
+SOAK r=213504001 s=1102 frames=248098 heap=5280 tasks=10 fds=0 t=110200
+SOAK r=213698001 s=1103 frames=248098 heap=5280 tasks=10 fds=0 t=110300
+SOAK r=213896001 s=1104 frames=248098 heap=5280 tasks=10 fds=0 t=110400
+SOAK r=214094001 s=1105 frames=248098 heap=5280 tasks=10 fds=0 t=110501
+SOAK r=214286001 s=1106 frames=248098 heap=5280 tasks=10 fds=0 t=110600
+SOAK r=214476001 s=1107 frames=248098 heap=5280 tasks=10 fds=0 t=110700
+SOAK r=214672001 s=1108 frames=248098 heap=5280 tasks=10 fds=0 t=110800
+SOAK r=214866001 s=1109 frames=248098 heap=5280 tasks=10 fds=0 t=110900
+SOAK r=215062001 s=1110 frames=248098 heap=5280 tasks=10 fds=0 t=111000
+SOAK r=215252001 s=1111 frames=248098 heap=5280 tasks=10 fds=0 t=111100
+SOAK r=215446001 s=1112 frames=248098 heap=5280 tasks=10 fds=0 t=111201
+SOAK r=215640001 s=1113 frames=248098 heap=5280 tasks=10 fds=0 t=111300
+SOAK r=215840001 s=1114 frames=248098 heap=5280 tasks=10 fds=0 t=111400
+SOAK r=216036001 s=1115 frames=248098 heap=5280 tasks=10 fds=0 t=111500
+SOAK r=216230001 s=1116 frames=248098 heap=5280 tasks=10 fds=0 t=111600
+SOAK r=216420001 s=1117 frames=248098 heap=5280 tasks=10 fds=0 t=111700
+SOAK r=216608001 s=1118 frames=248098 heap=5280 tasks=10 fds=0 t=111800
+SOAK r=216806001 s=1119 frames=248098 heap=5280 tasks=10 fds=0 t=111900
+SOAK r=217002001 s=1120 frames=248098 heap=5280 tasks=10 fds=0 t=112000
+SOAK r=217188001 s=1121 frames=248098 heap=5280 tasks=10 fds=0 t=112100
+SOAK r=217374001 s=1122 frames=248098 heap=5280 tasks=10 fds=0 t=112200
+SOAK r=217568001 s=1123 frames=248098 heap=5280 tasks=10 fds=0 t=112300
+SOAK r=217758001 s=1124 frames=248098 heap=5280 tasks=10 fds=0 t=112401
+SOAK r=217954001 s=1125 frames=248098 heap=5280 tasks=10 fds=0 t=112500
+SOAK r=218150001 s=1126 frames=248098 heap=5280 tasks=10 fds=0 t=112600
+SOAK r=218336001 s=1127 frames=248098 heap=5280 tasks=10 fds=0 t=112700
+SOAK r=218534001 s=1128 frames=248098 heap=5280 tasks=10 fds=0 t=112800
+SOAK r=218724001 s=1129 frames=248098 heap=5280 tasks=10 fds=0 t=112900
+SOAK r=218924001 s=1130 frames=248098 heap=5280 tasks=10 fds=0 t=113000
+SOAK r=219118001 s=1131 frames=248098 heap=5280 tasks=10 fds=0 t=113100
+SOAK r=219310001 s=1132 frames=248098 heap=5280 tasks=10 fds=0 t=113200
+SOAK r=219500001 s=1133 frames=248098 heap=5280 tasks=10 fds=0 t=113300
+SOAK r=219690001 s=1134 frames=248098 heap=5280 tasks=10 fds=0 t=113400
+SOAK r=219876001 s=1135 frames=248098 heap=5280 tasks=10 fds=0 t=113501
+SOAK r=220064001 s=1136 frames=248098 heap=5280 tasks=10 fds=0 t=113600
+SOAK r=220260001 s=1137 frames=248098 heap=5280 tasks=10 fds=0 t=113700
+SOAK r=220454001 s=1138 frames=248098 heap=5280 tasks=10 fds=0 t=113800
+SOAK r=220650001 s=1139 frames=248098 heap=5280 tasks=10 fds=0 t=113900
+SOAK r=220844001 s=1140 frames=248098 heap=5280 tasks=10 fds=0 t=114000
+SOAK r=221036001 s=1141 frames=248098 heap=5280 tasks=10 fds=0 t=114100
+SOAK r=221226001 s=1142 frames=248098 heap=5280 tasks=10 fds=0 t=114200
+SOAK r=221420001 s=1143 frames=248098 heap=5280 tasks=10 fds=0 t=114300
+SOAK r=221616001 s=1144 frames=248098 heap=5280 tasks=10 fds=0 t=114400
+SOAK r=221806001 s=1145 frames=248098 heap=5280 tasks=10 fds=0 t=114500
+SOAK r=221998001 s=1146 frames=248098 heap=5280 tasks=10 fds=0 t=114600
+SOAK r=222194001 s=1147 frames=248098 heap=5280 tasks=10 fds=0 t=114700
+SOAK r=222388001 s=1148 frames=248098 heap=5280 tasks=10 fds=0 t=114800
+SOAK r=222582001 s=1149 frames=248098 heap=5280 tasks=10 fds=0 t=114900
+SOAK r=222774001 s=1150 frames=248098 heap=5280 tasks=10 fds=0 t=115000
+SOAK r=222968001 s=1151 frames=248098 heap=5280 tasks=10 fds=0 t=115101
+SOAK r=223160001 s=1152 frames=248098 heap=5280 tasks=10 fds=0 t=115200
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=1152 verdict=ok
+SOAK r=223354001 s=1153 frames=248098 heap=5280 tasks=10 fds=0 t=115300
+SOAK r=223546001 s=1154 frames=248098 heap=5280 tasks=10 fds=0 t=115400
+SOAK r=223740001 s=1155 frames=248098 heap=5280 tasks=10 fds=0 t=115500
+SOAK r=223932001 s=1156 frames=248098 heap=5280 tasks=10 fds=0 t=115600
+SOAK r=224128001 s=1157 frames=248098 heap=5280 tasks=10 fds=0 t=115700
+SOAK r=224324001 s=1158 frames=248098 heap=5280 tasks=10 fds=0 t=115800
+SOAK r=224520001 s=1159 frames=248098 heap=5280 tasks=10 fds=0 t=115900
+SOAK r=224714001 s=1160 frames=248098 heap=5280 tasks=10 fds=0 t=116000
+SOAK r=224908001 s=1161 frames=248098 heap=5280 tasks=10 fds=0 t=116100
+SOAK r=225104001 s=1162 frames=248098 heap=5280 tasks=10 fds=0 t=116200
+SOAK r=225300001 s=1163 frames=248098 heap=5280 tasks=10 fds=0 t=116300
+SOAK r=225494001 s=1164 frames=248098 heap=5280 tasks=10 fds=0 t=116400
+SOAK r=225688001 s=1165 frames=248098 heap=5280 tasks=10 fds=0 t=116500
+SOAK r=225884001 s=1166 frames=248098 heap=5280 tasks=10 fds=0 t=116600
+SOAK r=226074001 s=1167 frames=248098 heap=5280 tasks=10 fds=0 t=116700
+SOAK r=226258001 s=1168 frames=248098 heap=5280 tasks=10 fds=0 t=116800
+SOAK r=226454001 s=1169 frames=248098 heap=5280 tasks=10 fds=0 t=116900
+SOAK r=226646001 s=1170 frames=248098 heap=5280 tasks=10 fds=0 t=117000
+SOAK r=226842001 s=1171 frames=248098 heap=5280 tasks=10 fds=0 t=117100
+SOAK r=227036001 s=1172 frames=248098 heap=5280 tasks=10 fds=0 t=117200
+SOAK r=227234001 s=1173 frames=248098 heap=5280 tasks=10 fds=0 t=117300
+SOAK r=227420001 s=1174 frames=248098 heap=5280 tasks=10 fds=0 t=117400
+SOAK r=227614001 s=1175 frames=248098 heap=5280 tasks=10 fds=0 t=117500
+SOAK r=227810001 s=1176 frames=248098 heap=5280 tasks=10 fds=0 t=117600
+SOAK r=227996001 s=1177 frames=248098 heap=5280 tasks=10 fds=0 t=117700
+SOAK r=228188001 s=1178 frames=248098 heap=5280 tasks=10 fds=0 t=117800
+SOAK r=228380001 s=1179 frames=248098 heap=5280 tasks=10 fds=0 t=117900
+SOAK r=228572001 s=1180 frames=248098 heap=5280 tasks=10 fds=0 t=118000
+SOAK r=228760001 s=1181 frames=248098 heap=5280 tasks=10 fds=0 t=118100
+SOAK r=228954001 s=1182 frames=248098 heap=5280 tasks=10 fds=0 t=118200
+SOAK r=229144001 s=1183 frames=248098 heap=5280 tasks=10 fds=0 t=118300
+SOAK r=229338001 s=1184 frames=248098 heap=5280 tasks=10 fds=0 t=118400
+SOAK r=229534001 s=1185 frames=248098 heap=5280 tasks=10 fds=0 t=118500
+SOAK r=229728001 s=1186 frames=248098 heap=5280 tasks=10 fds=0 t=118601
+SOAK r=229920001 s=1187 frames=248098 heap=5280 tasks=10 fds=0 t=118700
+SOAK r=230114001 s=1188 frames=248098 heap=5280 tasks=10 fds=0 t=118800
+SOAK r=230308001 s=1189 frames=248098 heap=5280 tasks=10 fds=0 t=118900
+SOAK r=230508001 s=1190 frames=248098 heap=5280 tasks=10 fds=0 t=119000
+SOAK r=230696001 s=1191 frames=248098 heap=5280 tasks=10 fds=0 t=119100
+SOAK r=230882001 s=1192 frames=248098 heap=5280 tasks=10 fds=0 t=119200
+SOAK r=231074001 s=1193 frames=248098 heap=5280 tasks=10 fds=0 t=119300
+SOAK r=231270001 s=1194 frames=248098 heap=5280 tasks=10 fds=0 t=119400
+SOAK r=231464001 s=1195 frames=248098 heap=5280 tasks=10 fds=0 t=119500
+SOAK r=231658001 s=1196 frames=248098 heap=5280 tasks=10 fds=0 t=119600
+SOAK r=231856001 s=1197 frames=248098 heap=5280 tasks=10 fds=0 t=119700
+SOAK r=232050001 s=1198 frames=248098 heap=5280 tasks=10 fds=0 t=119800
+SOAK r=232240001 s=1199 frames=248098 heap=5280 tasks=10 fds=0 t=119900
+SOAK r=232436001 s=1200 frames=248098 heap=5280 tasks=10 fds=0 t=120000
+SOAK r=232628001 s=1201 frames=248098 heap=5280 tasks=10 fds=0 t=120100
+SOAK r=232816001 s=1202 frames=248098 heap=5280 tasks=10 fds=0 t=120200
+SOAK r=233008001 s=1203 frames=248098 heap=5280 tasks=10 fds=0 t=120300
+SOAK r=233202001 s=1204 frames=248098 heap=5280 tasks=10 fds=0 t=120400
+SOAK r=233392001 s=1205 frames=248098 heap=5280 tasks=10 fds=0 t=120500
+SOAK r=233584001 s=1206 frames=248098 heap=5280 tasks=10 fds=0 t=120600
+SOAK r=233768001 s=1207 frames=248098 heap=5280 tasks=10 fds=0 t=120700
+SOAK r=233958001 s=1208 frames=248098 heap=5280 tasks=10 fds=0 t=120800
+SOAK r=234150001 s=1209 frames=248098 heap=5280 tasks=10 fds=0 t=120900
+SOAK r=234344001 s=1210 frames=248098 heap=5280 tasks=10 fds=0 t=121000
+SOAK r=234536001 s=1211 frames=248098 heap=5280 tasks=10 fds=0 t=121100
+SOAK r=234726001 s=1212 frames=248098 heap=5280 tasks=10 fds=0 t=121200
+SOAK r=234916001 s=1213 frames=248098 heap=5280 tasks=10 fds=0 t=121300
+SOAK r=235110001 s=1214 frames=248098 heap=5280 tasks=10 fds=0 t=121400
+SOAK r=235308001 s=1215 frames=248098 heap=5280 tasks=10 fds=0 t=121500
+SOAK r=235504001 s=1216 frames=248098 heap=5280 tasks=10 fds=0 t=121600
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=1216 verdict=ok
+SOAK r=235698001 s=1217 frames=248098 heap=5280 tasks=10 fds=0 t=121700
+SOAK r=235884001 s=1218 frames=248098 heap=5280 tasks=10 fds=0 t=121800
+SOAK r=236078001 s=1219 frames=248098 heap=5280 tasks=10 fds=0 t=121900
+SOAK r=236272001 s=1220 frames=248098 heap=5280 tasks=10 fds=0 t=122000
+SOAK r=236464001 s=1221 frames=248098 heap=5280 tasks=10 fds=0 t=122100
+SOAK r=236650001 s=1222 frames=248098 heap=5280 tasks=10 fds=0 t=122200
+SOAK r=236850001 s=1223 frames=248098 heap=5280 tasks=10 fds=0 t=122300
+SOAK r=237040001 s=1224 frames=248098 heap=5280 tasks=10 fds=0 t=122400
+SOAK r=237236001 s=1225 frames=248098 heap=5280 tasks=10 fds=0 t=122500
+SOAK r=237428001 s=1226 frames=248098 heap=5280 tasks=10 fds=0 t=122600
+SOAK r=237622001 s=1227 frames=248098 heap=5280 tasks=10 fds=0 t=122700
+SOAK r=237814001 s=1228 frames=248098 heap=5280 tasks=10 fds=0 t=122800
+SOAK r=238008001 s=1229 frames=248098 heap=5280 tasks=10 fds=0 t=122900
+SOAK r=238200001 s=1230 frames=248098 heap=5280 tasks=10 fds=0 t=123000
+SOAK r=238396001 s=1231 frames=248098 heap=5280 tasks=10 fds=0 t=123100
+SOAK r=238592001 s=1232 frames=248098 heap=5280 tasks=10 fds=0 t=123200
+SOAK r=238786001 s=1233 frames=248098 heap=5280 tasks=10 fds=0 t=123300
+SOAK r=238980001 s=1234 frames=248098 heap=5280 tasks=10 fds=0 t=123400
+SOAK r=239172001 s=1235 frames=248098 heap=5280 tasks=10 fds=0 t=123500
+SOAK r=239364001 s=1236 frames=248098 heap=5280 tasks=10 fds=0 t=123600
+SOAK r=239554001 s=1237 frames=248098 heap=5280 tasks=10 fds=0 t=123700
+SOAK r=239744001 s=1238 frames=248098 heap=5280 tasks=10 fds=0 t=123800
+SOAK r=239942001 s=1239 frames=248098 heap=5280 tasks=10 fds=0 t=123900
+SOAK r=240136001 s=1240 frames=248098 heap=5280 tasks=10 fds=0 t=124001
+SOAK r=240328001 s=1241 frames=248098 heap=5280 tasks=10 fds=0 t=124100
+SOAK r=240520001 s=1242 frames=248098 heap=5280 tasks=10 fds=0 t=124200
+SOAK r=240712001 s=1243 frames=248098 heap=5280 tasks=10 fds=0 t=124300
+SOAK r=240908001 s=1244 frames=248098 heap=5280 tasks=10 fds=0 t=124400
+SOAK r=241098001 s=1245 frames=248098 heap=5280 tasks=10 fds=0 t=124500
+SOAK r=241294001 s=1246 frames=248098 heap=5280 tasks=10 fds=0 t=124600
+SOAK r=241486001 s=1247 frames=248098 heap=5280 tasks=10 fds=0 t=124700
+SOAK r=241682001 s=1248 frames=248098 heap=5280 tasks=10 fds=0 t=124800
+SOAK r=241880001 s=1249 frames=248098 heap=5280 tasks=10 fds=0 t=124900
+SOAK r=242070001 s=1250 frames=248098 heap=5280 tasks=10 fds=0 t=125001
+SOAK r=242260001 s=1251 frames=248098 heap=5280 tasks=10 fds=0 t=125100
+SOAK r=242448001 s=1252 frames=248098 heap=5280 tasks=10 fds=0 t=125200
+SOAK r=242638001 s=1253 frames=248098 heap=5280 tasks=10 fds=0 t=125300
+SOAK r=242836001 s=1254 frames=248098 heap=5280 tasks=10 fds=0 t=125400
+SOAK r=243034001 s=1255 frames=248098 heap=5280 tasks=10 fds=0 t=125500
+SOAK r=243232001 s=1256 frames=248098 heap=5280 tasks=10 fds=0 t=125600
+SOAK r=243428001 s=1257 frames=248098 heap=5280 tasks=10 fds=0 t=125700
+SOAK r=243618001 s=1258 frames=248098 heap=5280 tasks=10 fds=0 t=125800
+SOAK r=243806001 s=1259 frames=248098 heap=5280 tasks=10 fds=0 t=125900
+SOAK r=243998001 s=1260 frames=248098 heap=5280 tasks=10 fds=0 t=126000
+SOAK r=244186001 s=1261 frames=248098 heap=5280 tasks=10 fds=0 t=126100
+SOAK r=244376001 s=1262 frames=248098 heap=5280 tasks=10 fds=0 t=126200
+SOAK r=244574001 s=1263 frames=248098 heap=5280 tasks=10 fds=0 t=126300
+SOAK r=244770001 s=1264 frames=248098 heap=5280 tasks=10 fds=0 t=126400
+SOAK r=244962001 s=1265 frames=248098 heap=5280 tasks=10 fds=0 t=126501
+SOAK r=245158001 s=1266 frames=248098 heap=5280 tasks=10 fds=0 t=126600
+SOAK r=245350001 s=1267 frames=248098 heap=5280 tasks=10 fds=0 t=126700
+SOAK r=245542001 s=1268 frames=248098 heap=5280 tasks=10 fds=0 t=126800
+SOAK r=245734001 s=1269 frames=248098 heap=5280 tasks=10 fds=0 t=126900
+SOAK r=245930001 s=1270 frames=248098 heap=5280 tasks=10 fds=0 t=127000
+SOAK r=246128001 s=1271 frames=248098 heap=5280 tasks=10 fds=0 t=127100
+SOAK r=246326001 s=1272 frames=248098 heap=5280 tasks=10 fds=0 t=127200
+SOAK r=246524001 s=1273 frames=248098 heap=5280 tasks=10 fds=0 t=127300
+SOAK r=246712001 s=1274 frames=248098 heap=5280 tasks=10 fds=0 t=127400
+SOAK r=246908001 s=1275 frames=248098 heap=5280 tasks=10 fds=0 t=127500
+SOAK r=247098001 s=1276 frames=248098 heap=5280 tasks=10 fds=0 t=127600
+SOAK r=247294001 s=1277 frames=248098 heap=5280 tasks=10 fds=0 t=127700
+SOAK r=247492001 s=1278 frames=248098 heap=5280 tasks=10 fds=0 t=127800
+SOAK r=247684001 s=1279 frames=248098 heap=5280 tasks=10 fds=0 t=127900
+SOAK r=247882001 s=1280 frames=248098 heap=5280 tasks=10 fds=0 t=128000
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=1280 verdict=ok
+SOAK r=248082001 s=1281 frames=248098 heap=5280 tasks=10 fds=0 t=128100
+SOAK r=248274001 s=1282 frames=248098 heap=5280 tasks=10 fds=0 t=128200
+SOAK r=248474001 s=1283 frames=248098 heap=5280 tasks=10 fds=0 t=128300
+SOAK r=248666001 s=1284 frames=248098 heap=5280 tasks=10 fds=0 t=128400
+SOAK r=248862001 s=1285 frames=248098 heap=5280 tasks=10 fds=0 t=128500
+SOAK r=249054001 s=1286 frames=248098 heap=5280 tasks=10 fds=0 t=128600
+SOAK r=249252001 s=1287 frames=248098 heap=5280 tasks=10 fds=0 t=128700
+SOAK r=249440001 s=1288 frames=248098 heap=5280 tasks=10 fds=0 t=128800
+SOAK r=249632001 s=1289 frames=248098 heap=5280 tasks=10 fds=0 t=128900
+SOAK r=249822001 s=1290 frames=248098 heap=5280 tasks=10 fds=0 t=129000
+SOAK r=250014001 s=1291 frames=248098 heap=5280 tasks=10 fds=0 t=129100
+SOAK r=250208001 s=1292 frames=248098 heap=5280 tasks=10 fds=0 t=129200
+SOAK r=250400001 s=1293 frames=248098 heap=5280 tasks=10 fds=0 t=129300
+SOAK r=250592001 s=1294 frames=248098 heap=5280 tasks=10 fds=0 t=129401
+SOAK r=250786001 s=1295 frames=248098 heap=5280 tasks=10 fds=0 t=129500
+SOAK r=250968001 s=1296 frames=248098 heap=5280 tasks=10 fds=0 t=129600
+SOAK r=251168001 s=1297 frames=248098 heap=5280 tasks=10 fds=0 t=129700
+SOAK r=251364001 s=1298 frames=248098 heap=5280 tasks=10 fds=0 t=129800
+SOAK r=251556001 s=1299 frames=248098 heap=5280 tasks=10 fds=0 t=129900
+SOAK r=251748001 s=1300 frames=248098 heap=5280 tasks=10 fds=0 t=130001
+SOAK r=251934001 s=1301 frames=248098 heap=5280 tasks=10 fds=0 t=130100
+SOAK r=252132001 s=1302 frames=248098 heap=5280 tasks=10 fds=0 t=130200
+SOAK r=252326001 s=1303 frames=248098 heap=5280 tasks=10 fds=0 t=130300
+SOAK r=252520001 s=1304 frames=248098 heap=5280 tasks=10 fds=0 t=130400
+SOAK r=252712001 s=1305 frames=248098 heap=5280 tasks=10 fds=0 t=130500
+SOAK r=252908001 s=1306 frames=248098 heap=5280 tasks=10 fds=0 t=130600
+SOAK r=253102001 s=1307 frames=248098 heap=5280 tasks=10 fds=0 t=130700
+SOAK r=253298001 s=1308 frames=248098 heap=5280 tasks=10 fds=0 t=130800
+SOAK r=253490001 s=1309 frames=248098 heap=5280 tasks=10 fds=0 t=130900
+SOAK r=253684001 s=1310 frames=248098 heap=5280 tasks=10 fds=0 t=131000
+SOAK r=253882001 s=1311 frames=248098 heap=5280 tasks=10 fds=0 t=131100
+SOAK r=254066001 s=1312 frames=248098 heap=5280 tasks=10 fds=0 t=131200
+SOAK r=254264001 s=1313 frames=248098 heap=5280 tasks=10 fds=0 t=131300
+SOAK r=254458001 s=1314 frames=248098 heap=5280 tasks=10 fds=0 t=131400
+SOAK r=254650001 s=1315 frames=248098 heap=5280 tasks=10 fds=0 t=131500
+SOAK r=254848001 s=1316 frames=248098 heap=5280 tasks=10 fds=0 t=131600
+SOAK r=255042001 s=1317 frames=248098 heap=5280 tasks=10 fds=0 t=131700
+SOAK r=255232001 s=1318 frames=248098 heap=5280 tasks=10 fds=0 t=131800
+SOAK r=255424001 s=1319 frames=248098 heap=5280 tasks=10 fds=0 t=131900
+SOAK r=255614001 s=1320 frames=248098 heap=5280 tasks=10 fds=0 t=132000
+SOAK r=255806001 s=1321 frames=248098 heap=5280 tasks=10 fds=0 t=132100
+SOAK r=256004001 s=1322 frames=248098 heap=5280 tasks=10 fds=0 t=132200
+SOAK r=256196001 s=1323 frames=248098 heap=5280 tasks=10 fds=0 t=132300
+SOAK r=256386001 s=1324 frames=248098 heap=5280 tasks=10 fds=0 t=132400
+SOAK r=256580001 s=1325 frames=248098 heap=5280 tasks=10 fds=0 t=132500
+SOAK r=256774001 s=1326 frames=248098 heap=5280 tasks=10 fds=0 t=132600
+SOAK r=256968001 s=1327 frames=248098 heap=5280 tasks=10 fds=0 t=132700
+SOAK r=257162001 s=1328 frames=248098 heap=5280 tasks=10 fds=0 t=132800
+SOAK r=257352001 s=1329 frames=248098 heap=5280 tasks=10 fds=0 t=132900
+SOAK r=257540001 s=1330 frames=248098 heap=5280 tasks=10 fds=0 t=133000
+SOAK r=257738001 s=1331 frames=248098 heap=5280 tasks=10 fds=0 t=133100
+SOAK r=257926001 s=1332 frames=248098 heap=5280 tasks=10 fds=0 t=133200
+SOAK r=258116001 s=1333 frames=248098 heap=5280 tasks=10 fds=0 t=133300
+SOAK r=258308001 s=1334 frames=248098 heap=5280 tasks=10 fds=0 t=133400
+SOAK r=258496001 s=1335 frames=248098 heap=5280 tasks=10 fds=0 t=133500
+SOAK r=258686001 s=1336 frames=248098 heap=5280 tasks=10 fds=0 t=133600
+SOAK r=258878001 s=1337 frames=248098 heap=5280 tasks=10 fds=0 t=133700
+SOAK r=259072001 s=1338 frames=248098 heap=5280 tasks=10 fds=0 t=133800
+SOAK r=259262001 s=1339 frames=248098 heap=5280 tasks=10 fds=0 t=133900
+SOAK r=259456001 s=1340 frames=248098 heap=5280 tasks=10 fds=0 t=134000
+SOAK r=259650001 s=1341 frames=248098 heap=5280 tasks=10 fds=0 t=134100
+SOAK r=259842001 s=1342 frames=248098 heap=5280 tasks=10 fds=0 t=134200
+SOAK r=260040001 s=1343 frames=248098 heap=5280 tasks=10 fds=0 t=134300
+SOAK r=260232001 s=1344 frames=248098 heap=5280 tasks=10 fds=0 t=134400
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=1344 verdict=ok
+SOAK r=260422001 s=1345 frames=248098 heap=5280 tasks=10 fds=0 t=134500
+SOAK r=260616001 s=1346 frames=248098 heap=5280 tasks=10 fds=0 t=134600
+SOAK r=260812001 s=1347 frames=248098 heap=5280 tasks=10 fds=0 t=134700
+SOAK r=261004001 s=1348 frames=248098 heap=5280 tasks=10 fds=0 t=134800
+SOAK r=261194001 s=1349 frames=248098 heap=5280 tasks=10 fds=0 t=134900
+SOAK r=261388001 s=1350 frames=248098 heap=5280 tasks=10 fds=0 t=135000
+SOAK r=261584001 s=1351 frames=248098 heap=5280 tasks=10 fds=0 t=135100
+SOAK r=261772001 s=1352 frames=248098 heap=5280 tasks=10 fds=0 t=135200
+SOAK r=261968001 s=1353 frames=248098 heap=5280 tasks=10 fds=0 t=135300
+SOAK r=262156001 s=1354 frames=248098 heap=5280 tasks=10 fds=0 t=135400
+SOAK r=262350001 s=1355 frames=248098 heap=5280 tasks=10 fds=0 t=135500
+SOAK r=262538001 s=1356 frames=248098 heap=5280 tasks=10 fds=0 t=135600
+SOAK r=262734001 s=1357 frames=248098 heap=5280 tasks=10 fds=0 t=135700
+SOAK r=262922001 s=1358 frames=248098 heap=5280 tasks=10 fds=0 t=135800
+SOAK r=263116001 s=1359 frames=248098 heap=5280 tasks=10 fds=0 t=135900
+SOAK r=263310001 s=1360 frames=248098 heap=5280 tasks=10 fds=0 t=136000
+SOAK r=263500001 s=1361 frames=248098 heap=5280 tasks=10 fds=0 t=136100
+SOAK r=263692001 s=1362 frames=248098 heap=5280 tasks=10 fds=0 t=136200
+SOAK r=263870001 s=1363 frames=248098 heap=5280 tasks=10 fds=0 t=136300
+SOAK r=264060001 s=1364 frames=248098 heap=5280 tasks=10 fds=0 t=136400
+SOAK r=264250001 s=1365 frames=248098 heap=5280 tasks=10 fds=0 t=136500
+SOAK r=264438001 s=1366 frames=248098 heap=5280 tasks=10 fds=0 t=136600
+SOAK r=264626001 s=1367 frames=248098 heap=5280 tasks=10 fds=0 t=136700
+SOAK r=264814001 s=1368 frames=248098 heap=5280 tasks=10 fds=0 t=136800
+SOAK r=265012001 s=1369 frames=248098 heap=5280 tasks=10 fds=0 t=136900
+SOAK r=265202001 s=1370 frames=248098 heap=5280 tasks=10 fds=0 t=137000
+SOAK r=265396001 s=1371 frames=248098 heap=5280 tasks=10 fds=0 t=137100
+SOAK r=265592001 s=1372 frames=248098 heap=5280 tasks=10 fds=0 t=137200
+SOAK r=265782001 s=1373 frames=248098 heap=5280 tasks=10 fds=0 t=137300
+SOAK r=265978001 s=1374 frames=248098 heap=5280 tasks=10 fds=0 t=137400
+SOAK r=266174001 s=1375 frames=248098 heap=5280 tasks=10 fds=0 t=137500
+SOAK r=266370001 s=1376 frames=248098 heap=5280 tasks=10 fds=0 t=137600
+SOAK r=266562001 s=1377 frames=248098 heap=5280 tasks=10 fds=0 t=137700
+SOAK r=266752001 s=1378 frames=248098 heap=5280 tasks=10 fds=0 t=137800
+SOAK r=266946001 s=1379 frames=248098 heap=5280 tasks=10 fds=0 t=137900
+SOAK r=267138001 s=1380 frames=248098 heap=5280 tasks=10 fds=0 t=138000
+SOAK r=267328001 s=1381 frames=248098 heap=5280 tasks=10 fds=0 t=138100
+SOAK r=267526001 s=1382 frames=248098 heap=5280 tasks=10 fds=0 t=138200
+SOAK r=267718001 s=1383 frames=248098 heap=5280 tasks=10 fds=0 t=138300
+SOAK r=267910001 s=1384 frames=248098 heap=5280 tasks=10 fds=0 t=138400
+SOAK r=268106001 s=1385 frames=248098 heap=5280 tasks=10 fds=0 t=138500
+SOAK r=268294001 s=1386 frames=248098 heap=5280 tasks=10 fds=0 t=138600
+SOAK r=268490001 s=1387 frames=248098 heap=5280 tasks=10 fds=0 t=138700
+SOAK r=268680001 s=1388 frames=248098 heap=5280 tasks=10 fds=0 t=138800
+SOAK r=268872001 s=1389 frames=248098 heap=5280 tasks=10 fds=0 t=138900
+SOAK r=269070001 s=1390 frames=248098 heap=5280 tasks=10 fds=0 t=139000
+SOAK r=269258001 s=1391 frames=248098 heap=5280 tasks=10 fds=0 t=139100
+SOAK r=269450001 s=1392 frames=248098 heap=5280 tasks=10 fds=0 t=139200
+SOAK r=269640001 s=1393 frames=248098 heap=5280 tasks=10 fds=0 t=139300
+SOAK r=269832001 s=1394 frames=248098 heap=5280 tasks=10 fds=0 t=139400
+SOAK r=270030001 s=1395 frames=248098 heap=5280 tasks=10 fds=0 t=139500
+SOAK r=270224001 s=1396 frames=248098 heap=5280 tasks=10 fds=0 t=139600
+SOAK r=270414001 s=1397 frames=248098 heap=5280 tasks=10 fds=0 t=139700
+SOAK r=270606001 s=1398 frames=248098 heap=5280 tasks=10 fds=0 t=139800
+SOAK r=270796001 s=1399 frames=248098 heap=5280 tasks=10 fds=0 t=139900
+SOAK r=270990001 s=1400 frames=248098 heap=5280 tasks=10 fds=0 t=140000
+SOAK r=271180001 s=1401 frames=248098 heap=5280 tasks=10 fds=0 t=140100
+SOAK r=271368001 s=1402 frames=248098 heap=5280 tasks=10 fds=0 t=140200
+SOAK r=271562001 s=1403 frames=248098 heap=5280 tasks=10 fds=0 t=140300
+SOAK r=271754001 s=1404 frames=248098 heap=5280 tasks=10 fds=0 t=140400
+SOAK r=271948001 s=1405 frames=248098 heap=5280 tasks=10 fds=0 t=140500
+SOAK r=272140001 s=1406 frames=248098 heap=5280 tasks=10 fds=0 t=140600
+SOAK r=272338001 s=1407 frames=248098 heap=5280 tasks=10 fds=0 t=140701
+SOAK r=272532001 s=1408 frames=248098 heap=5280 tasks=10 fds=0 t=140800
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=1408 verdict=ok
+SOAK r=272724001 s=1409 frames=248098 heap=5280 tasks=10 fds=0 t=140900
+SOAK r=272914001 s=1410 frames=248098 heap=5280 tasks=10 fds=0 t=141000
+SOAK r=273106001 s=1411 frames=248098 heap=5280 tasks=10 fds=0 t=141100
+SOAK r=273302001 s=1412 frames=248098 heap=5280 tasks=10 fds=0 t=141200
+SOAK r=273494001 s=1413 frames=248098 heap=5280 tasks=10 fds=0 t=141300
+SOAK r=273676001 s=1414 frames=248098 heap=5280 tasks=10 fds=0 t=141400
+SOAK r=273866001 s=1415 frames=248098 heap=5280 tasks=10 fds=0 t=141500
+SOAK r=274060001 s=1416 frames=248098 heap=5280 tasks=10 fds=0 t=141600
+SOAK r=274258001 s=1417 frames=248098 heap=5280 tasks=10 fds=0 t=141700
+SOAK r=274458001 s=1418 frames=248098 heap=5280 tasks=10 fds=0 t=141800
+SOAK r=274644001 s=1419 frames=248098 heap=5280 tasks=10 fds=0 t=141900
+SOAK r=274840001 s=1420 frames=248098 heap=5280 tasks=10 fds=0 t=142000
+SOAK r=275030001 s=1421 frames=248098 heap=5280 tasks=10 fds=0 t=142100
+SOAK r=275224001 s=1422 frames=248098 heap=5280 tasks=10 fds=0 t=142200
+SOAK r=275420001 s=1423 frames=248098 heap=5280 tasks=10 fds=0 t=142300
+SOAK r=275606001 s=1424 frames=248098 heap=5280 tasks=10 fds=0 t=142401
+SOAK r=275798001 s=1425 frames=248098 heap=5280 tasks=10 fds=0 t=142500
+SOAK r=275992001 s=1426 frames=248098 heap=5280 tasks=10 fds=0 t=142600
+SOAK r=276186001 s=1427 frames=248098 heap=5280 tasks=10 fds=0 t=142700
+SOAK r=276382001 s=1428 frames=248098 heap=5280 tasks=10 fds=0 t=142800
+SOAK r=276574001 s=1429 frames=248098 heap=5280 tasks=10 fds=0 t=142900
+SOAK r=276774001 s=1430 frames=248098 heap=5280 tasks=10 fds=0 t=143000
+SOAK r=276964001 s=1431 frames=248098 heap=5280 tasks=10 fds=0 t=143100
+SOAK r=277148001 s=1432 frames=248098 heap=5280 tasks=10 fds=0 t=143200
+SOAK r=277346001 s=1433 frames=248098 heap=5280 tasks=10 fds=0 t=143300
+SOAK r=277540001 s=1434 frames=248098 heap=5280 tasks=10 fds=0 t=143400
+SOAK r=277738001 s=1435 frames=248098 heap=5280 tasks=10 fds=0 t=143500
+SOAK r=277938001 s=1436 frames=248098 heap=5280 tasks=10 fds=0 t=143600
+SOAK r=278130001 s=1437 frames=248098 heap=5280 tasks=10 fds=0 t=143700
+SOAK r=278326001 s=1438 frames=248098 heap=5280 tasks=10 fds=0 t=143800
+SOAK r=278520001 s=1439 frames=248098 heap=5280 tasks=10 fds=0 t=143900
+SOAK r=278716001 s=1440 frames=248098 heap=5280 tasks=10 fds=0 t=144000
+SOAK r=278910001 s=1441 frames=248098 heap=5280 tasks=10 fds=0 t=144100
+SOAK r=279104001 s=1442 frames=248098 heap=5280 tasks=10 fds=0 t=144200
+SOAK r=279294001 s=1443 frames=248098 heap=5280 tasks=10 fds=0 t=144300
+SOAK r=279486001 s=1444 frames=248098 heap=5280 tasks=10 fds=0 t=144400
+SOAK r=279672001 s=1445 frames=248098 heap=5280 tasks=10 fds=0 t=144500
+SOAK r=279868001 s=1446 frames=248098 heap=5280 tasks=10 fds=0 t=144600
+SOAK r=280066001 s=1447 frames=248098 heap=5280 tasks=10 fds=0 t=144700
+SOAK r=280258001 s=1448 frames=248098 heap=5280 tasks=10 fds=0 t=144800
+SOAK r=280456001 s=1449 frames=248098 heap=5280 tasks=10 fds=0 t=144900
+SOAK r=280642001 s=1450 frames=248098 heap=5280 tasks=10 fds=0 t=145000
+SOAK r=280842001 s=1451 frames=248098 heap=5280 tasks=10 fds=0 t=145100
+SOAK r=281032001 s=1452 frames=248098 heap=5280 tasks=10 fds=0 t=145200
+SOAK r=281226001 s=1453 frames=248098 heap=5280 tasks=10 fds=0 t=145300
+SOAK r=281416001 s=1454 frames=248098 heap=5280 tasks=10 fds=0 t=145400
+SOAK r=281608001 s=1455 frames=248098 heap=5280 tasks=10 fds=0 t=145500
+SOAK r=281796001 s=1456 frames=248098 heap=5280 tasks=10 fds=0 t=145601
+SOAK r=281984001 s=1457 frames=248098 heap=5280 tasks=10 fds=0 t=145700
+SOAK r=282174001 s=1458 frames=248098 heap=5280 tasks=10 fds=0 t=145800
+SOAK r=282372001 s=1459 frames=248098 heap=5280 tasks=10 fds=0 t=145900
+SOAK r=282564001 s=1460 frames=248098 heap=5280 tasks=10 fds=0 t=146000
+SOAK r=282762001 s=1461 frames=248098 heap=5280 tasks=10 fds=0 t=146100
+SOAK r=282954001 s=1462 frames=248098 heap=5280 tasks=10 fds=0 t=146200
+SOAK r=283152001 s=1463 frames=248098 heap=5280 tasks=10 fds=0 t=146300
+SOAK r=283352001 s=1464 frames=248098 heap=5280 tasks=10 fds=0 t=146400
+SOAK r=283542001 s=1465 frames=248098 heap=5280 tasks=10 fds=0 t=146500
+SOAK r=283736001 s=1466 frames=248098 heap=5280 tasks=10 fds=0 t=146601
+SOAK r=283928001 s=1467 frames=248098 heap=5280 tasks=10 fds=0 t=146700
+SOAK r=284120001 s=1468 frames=248098 heap=5280 tasks=10 fds=0 t=146800
+SOAK r=284314001 s=1469 frames=248098 heap=5280 tasks=10 fds=0 t=146900
+SOAK r=284510001 s=1470 frames=248098 heap=5280 tasks=10 fds=0 t=147000
+SOAK r=284704001 s=1471 frames=248098 heap=5280 tasks=10 fds=0 t=147100
+SOAK r=284900001 s=1472 frames=248098 heap=5280 tasks=10 fds=0 t=147200
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=1472 verdict=ok
+SOAK r=285096001 s=1473 frames=248098 heap=5280 tasks=10 fds=0 t=147300
+SOAK r=285296001 s=1474 frames=248098 heap=5280 tasks=10 fds=0 t=147400
+SOAK r=285488001 s=1475 frames=248098 heap=5280 tasks=10 fds=0 t=147500
+SOAK r=285684001 s=1476 frames=248098 heap=5280 tasks=10 fds=0 t=147600
+SOAK r=285874001 s=1477 frames=248098 heap=5280 tasks=10 fds=0 t=147700
+SOAK r=286066001 s=1478 frames=248098 heap=5280 tasks=10 fds=0 t=147800
+SOAK r=286258001 s=1479 frames=248098 heap=5280 tasks=10 fds=0 t=147900
+SOAK r=286456001 s=1480 frames=248098 heap=5280 tasks=10 fds=0 t=148000
+SOAK r=286652001 s=1481 frames=248098 heap=5280 tasks=10 fds=0 t=148100
+SOAK r=286848001 s=1482 frames=248098 heap=5280 tasks=10 fds=0 t=148200
+SOAK r=287044001 s=1483 frames=248098 heap=5280 tasks=10 fds=0 t=148300
+SOAK r=287244001 s=1484 frames=248098 heap=5280 tasks=10 fds=0 t=148400
+SOAK r=287434001 s=1485 frames=248098 heap=5280 tasks=10 fds=0 t=148500
+SOAK r=287626001 s=1486 frames=248098 heap=5280 tasks=10 fds=0 t=148600
+SOAK r=287820001 s=1487 frames=248098 heap=5280 tasks=10 fds=0 t=148700
+SOAK r=288018001 s=1488 frames=248098 heap=5280 tasks=10 fds=0 t=148800
+SOAK r=288208001 s=1489 frames=248098 heap=5280 tasks=10 fds=0 t=148900
+SOAK r=288396001 s=1490 frames=248098 heap=5280 tasks=10 fds=0 t=149000
+SOAK r=288586001 s=1491 frames=248098 heap=5280 tasks=10 fds=0 t=149100
+SOAK r=288772001 s=1492 frames=248098 heap=5280 tasks=10 fds=0 t=149200
+SOAK r=288964001 s=1493 frames=248098 heap=5280 tasks=10 fds=0 t=149300
+SOAK r=289162001 s=1494 frames=248098 heap=5280 tasks=10 fds=0 t=149400
+SOAK r=289356001 s=1495 frames=248098 heap=5280 tasks=10 fds=0 t=149500
+SOAK r=289554001 s=1496 frames=248098 heap=5280 tasks=10 fds=0 t=149600
+SOAK r=289752001 s=1497 frames=248098 heap=5280 tasks=10 fds=0 t=149700
+SOAK r=289944001 s=1498 frames=248098 heap=5280 tasks=10 fds=0 t=149800
+SOAK r=290134001 s=1499 frames=248098 heap=5280 tasks=10 fds=0 t=149900
+SOAK r=290330001 s=1500 frames=248098 heap=5280 tasks=10 fds=0 t=150000
+SOAK r=290528001 s=1501 frames=248098 heap=5280 tasks=10 fds=0 t=150100
+SOAK r=290718001 s=1502 frames=248098 heap=5280 tasks=10 fds=0 t=150200
+SOAK r=290914001 s=1503 frames=248098 heap=5280 tasks=10 fds=0 t=150300
+SOAK r=291108001 s=1504 frames=248098 heap=5280 tasks=10 fds=0 t=150400
+SOAK r=291290001 s=1505 frames=248098 heap=5280 tasks=10 fds=0 t=150500
+SOAK r=291482001 s=1506 frames=248098 heap=5280 tasks=10 fds=0 t=150600
+SOAK r=291676001 s=1507 frames=248098 heap=5280 tasks=10 fds=0 t=150700
+SOAK r=291860001 s=1508 frames=248098 heap=5280 tasks=10 fds=0 t=150800
+SOAK r=292056001 s=1509 frames=248098 heap=5280 tasks=10 fds=0 t=150900
+SOAK r=292244001 s=1510 frames=248098 heap=5280 tasks=10 fds=0 t=151000
+SOAK r=292434001 s=1511 frames=248098 heap=5280 tasks=10 fds=0 t=151100
+SOAK r=292622001 s=1512 frames=248098 heap=5280 tasks=10 fds=0 t=151200
+SOAK r=292818001 s=1513 frames=248098 heap=5280 tasks=10 fds=0 t=151300
+SOAK r=293012001 s=1514 frames=248098 heap=5280 tasks=10 fds=0 t=151400
+SOAK r=293200001 s=1515 frames=248098 heap=5280 tasks=10 fds=0 t=151500
+SOAK r=293392001 s=1516 frames=248098 heap=5280 tasks=10 fds=0 t=151600
+SOAK r=293588001 s=1517 frames=248098 heap=5280 tasks=10 fds=0 t=151700
+SOAK r=293786001 s=1518 frames=248098 heap=5280 tasks=10 fds=0 t=151800
+SOAK r=293980001 s=1519 frames=248098 heap=5280 tasks=10 fds=0 t=151900
+SOAK r=294166001 s=1520 frames=248098 heap=5280 tasks=10 fds=0 t=152000
+SOAK r=294364001 s=1521 frames=248098 heap=5280 tasks=10 fds=0 t=152100
+SOAK r=294556001 s=1522 frames=248098 heap=5280 tasks=10 fds=0 t=152200
+SOAK r=294748001 s=1523 frames=248098 heap=5280 tasks=10 fds=0 t=152300
+SOAK r=294944001 s=1524 frames=248098 heap=5280 tasks=10 fds=0 t=152400
+SOAK r=295132001 s=1525 frames=248098 heap=5280 tasks=10 fds=0 t=152500
+SOAK r=295326001 s=1526 frames=248098 heap=5280 tasks=10 fds=0 t=152600
+SOAK r=295518001 s=1527 frames=248098 heap=5280 tasks=10 fds=0 t=152700
+SOAK r=295712001 s=1528 frames=248098 heap=5280 tasks=10 fds=0 t=152800
+SOAK r=295906001 s=1529 frames=248098 heap=5280 tasks=10 fds=0 t=152900
+SOAK r=296104001 s=1530 frames=248098 heap=5280 tasks=10 fds=0 t=153000
+SOAK r=296296001 s=1531 frames=248098 heap=5280 tasks=10 fds=0 t=153100
+SOAK r=296488001 s=1532 frames=248098 heap=5280 tasks=10 fds=0 t=153200
+SOAK r=296680001 s=1533 frames=248098 heap=5280 tasks=10 fds=0 t=153300
+SOAK r=296872001 s=1534 frames=248098 heap=5280 tasks=10 fds=0 t=153400
+SOAK r=297066001 s=1535 frames=248098 heap=5280 tasks=10 fds=0 t=153500
+SOAK r=297254001 s=1536 frames=248098 heap=5280 tasks=10 fds=0 t=153600
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=1536 verdict=ok
+SOAK r=297438001 s=1537 frames=248098 heap=5280 tasks=10 fds=0 t=153700
+SOAK r=297632001 s=1538 frames=248098 heap=5280 tasks=10 fds=0 t=153800
+SOAK r=297824001 s=1539 frames=248098 heap=5280 tasks=10 fds=0 t=153900
+SOAK r=298016001 s=1540 frames=248098 heap=5280 tasks=10 fds=0 t=154000
+SOAK r=298212001 s=1541 frames=248098 heap=5280 tasks=10 fds=0 t=154100
+SOAK r=298402001 s=1542 frames=248098 heap=5280 tasks=10 fds=0 t=154200
+SOAK r=298600001 s=1543 frames=248098 heap=5280 tasks=10 fds=0 t=154300
+SOAK r=298798001 s=1544 frames=248098 heap=5280 tasks=10 fds=0 t=154400
+SOAK r=298988001 s=1545 frames=248098 heap=5280 tasks=10 fds=0 t=154500
+SOAK r=299180001 s=1546 frames=248098 heap=5280 tasks=10 fds=0 t=154600
+SOAK r=299370001 s=1547 frames=248098 heap=5280 tasks=10 fds=0 t=154700
+SOAK r=299566001 s=1548 frames=248098 heap=5280 tasks=10 fds=0 t=154800
+SOAK r=299758001 s=1549 frames=248098 heap=5280 tasks=10 fds=0 t=154900
+SOAK r=299952001 s=1550 frames=248098 heap=5280 tasks=10 fds=0 t=155000
+SOAK r=300146001 s=1551 frames=248098 heap=5280 tasks=10 fds=0 t=155100
+SOAK r=300338001 s=1552 frames=248098 heap=5280 tasks=10 fds=0 t=155200
+SOAK r=300528001 s=1553 frames=248098 heap=5280 tasks=10 fds=0 t=155300
+SOAK r=300724001 s=1554 frames=248098 heap=5280 tasks=10 fds=0 t=155400
+SOAK r=300924001 s=1555 frames=248098 heap=5280 tasks=10 fds=0 t=155500
+SOAK r=301114001 s=1556 frames=248098 heap=5280 tasks=10 fds=0 t=155600
+SOAK r=301304001 s=1557 frames=248098 heap=5280 tasks=10 fds=0 t=155700
+SOAK r=301502001 s=1558 frames=248098 heap=5280 tasks=10 fds=0 t=155800
+SOAK r=301698001 s=1559 frames=248098 heap=5280 tasks=10 fds=0 t=155900
+SOAK r=301884001 s=1560 frames=248098 heap=5280 tasks=10 fds=0 t=156000
+SOAK r=302076001 s=1561 frames=248098 heap=5280 tasks=10 fds=0 t=156100
+SOAK r=302266001 s=1562 frames=248098 heap=5280 tasks=10 fds=0 t=156200
+SOAK r=302462001 s=1563 frames=248098 heap=5280 tasks=10 fds=0 t=156300
+SOAK r=302656001 s=1564 frames=248098 heap=5280 tasks=10 fds=0 t=156400
+SOAK r=302852001 s=1565 frames=248098 heap=5280 tasks=10 fds=0 t=156500
+SOAK r=303038001 s=1566 frames=248098 heap=5280 tasks=10 fds=0 t=156600
+SOAK r=303234001 s=1567 frames=248098 heap=5280 tasks=10 fds=0 t=156700
+SOAK r=303420001 s=1568 frames=248098 heap=5280 tasks=10 fds=0 t=156800
+SOAK r=303610001 s=1569 frames=248098 heap=5280 tasks=10 fds=0 t=156900
+SOAK r=303808001 s=1570 frames=248098 heap=5280 tasks=10 fds=0 t=157000
+SOAK r=304004001 s=1571 frames=248098 heap=5280 tasks=10 fds=0 t=157100
+SOAK r=304198001 s=1572 frames=248098 heap=5280 tasks=10 fds=0 t=157200
+SOAK r=304390001 s=1573 frames=248098 heap=5280 tasks=10 fds=0 t=157300
+SOAK r=304576001 s=1574 frames=248098 heap=5280 tasks=10 fds=0 t=157400
+SOAK r=304772001 s=1575 frames=248098 heap=5280 tasks=10 fds=0 t=157500
+SOAK r=304970001 s=1576 frames=248098 heap=5280 tasks=10 fds=0 t=157600
+SOAK r=305166001 s=1577 frames=248098 heap=5280 tasks=10 fds=0 t=157700
+SOAK r=305356001 s=1578 frames=248098 heap=5280 tasks=10 fds=0 t=157800
+SOAK r=305550001 s=1579 frames=248098 heap=5280 tasks=10 fds=0 t=157900
+SOAK r=305748001 s=1580 frames=248098 heap=5280 tasks=10 fds=0 t=158000
+SOAK r=305942001 s=1581 frames=248098 heap=5280 tasks=10 fds=0 t=158100
+SOAK r=306134001 s=1582 frames=248098 heap=5280 tasks=10 fds=0 t=158200
+SOAK r=306332001 s=1583 frames=248098 heap=5280 tasks=10 fds=0 t=158300
+SOAK r=306528001 s=1584 frames=248098 heap=5280 tasks=10 fds=0 t=158400
+SOAK r=306726001 s=1585 frames=248098 heap=5280 tasks=10 fds=0 t=158500
+SOAK r=306922001 s=1586 frames=248098 heap=5280 tasks=10 fds=0 t=158600
+SOAK r=307110001 s=1587 frames=248098 heap=5280 tasks=10 fds=0 t=158700
+SOAK r=307306001 s=1588 frames=248098 heap=5280 tasks=10 fds=0 t=158800
+SOAK r=307500001 s=1589 frames=248098 heap=5280 tasks=10 fds=0 t=158900
+SOAK r=307698001 s=1590 frames=248098 heap=5280 tasks=10 fds=0 t=159000
+SOAK r=307894001 s=1591 frames=248098 heap=5280 tasks=10 fds=0 t=159100
+SOAK r=308088001 s=1592 frames=248098 heap=5280 tasks=10 fds=0 t=159200
+SOAK r=308284001 s=1593 frames=248098 heap=5280 tasks=10 fds=0 t=159300
+SOAK r=308478001 s=1594 frames=248098 heap=5280 tasks=10 fds=0 t=159400
+SOAK r=308670001 s=1595 frames=248098 heap=5280 tasks=10 fds=0 t=159500
+SOAK r=308864001 s=1596 frames=248098 heap=5280 tasks=10 fds=0 t=159600
+SOAK r=309062001 s=1597 frames=248098 heap=5280 tasks=10 fds=0 t=159701
+SOAK r=309258001 s=1598 frames=248098 heap=5280 tasks=10 fds=0 t=159800
+SOAK r=309456001 s=1599 frames=248098 heap=5280 tasks=10 fds=0 t=159900
+SOAK r=309654001 s=1600 frames=248098 heap=5280 tasks=10 fds=0 t=160000
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=1600 verdict=ok
+SOAK r=309850001 s=1601 frames=248098 heap=5280 tasks=10 fds=0 t=160100
+SOAK r=310046001 s=1602 frames=248098 heap=5280 tasks=10 fds=0 t=160200
+SOAK r=310238001 s=1603 frames=248098 heap=5280 tasks=10 fds=0 t=160301
+SOAK r=310430001 s=1604 frames=248098 heap=5280 tasks=10 fds=0 t=160401
+SOAK r=310628001 s=1605 frames=248098 heap=5280 tasks=10 fds=0 t=160500
+SOAK r=310822001 s=1606 frames=248098 heap=5280 tasks=10 fds=0 t=160600
+SOAK r=311018001 s=1607 frames=248098 heap=5280 tasks=10 fds=0 t=160700
+SOAK r=311212001 s=1608 frames=248098 heap=5280 tasks=10 fds=0 t=160800
+SOAK r=311408001 s=1609 frames=248098 heap=5280 tasks=10 fds=0 t=160901
+SOAK r=311600001 s=1610 frames=248098 heap=5280 tasks=10 fds=0 t=161000
+SOAK r=311796001 s=1611 frames=248098 heap=5280 tasks=10 fds=0 t=161100
+SOAK r=311988001 s=1612 frames=248098 heap=5280 tasks=10 fds=0 t=161200
+SOAK r=312168001 s=1613 frames=248098 heap=5280 tasks=10 fds=0 t=161300
+SOAK r=312356001 s=1614 frames=248098 heap=5280 tasks=10 fds=0 t=161400
+SOAK r=312554001 s=1615 frames=248098 heap=5280 tasks=10 fds=0 t=161500
+SOAK r=312748001 s=1616 frames=248098 heap=5280 tasks=10 fds=0 t=161600
+SOAK r=312946001 s=1617 frames=248098 heap=5280 tasks=10 fds=0 t=161700
+SOAK r=313140001 s=1618 frames=248098 heap=5280 tasks=10 fds=0 t=161800
+SOAK r=313326001 s=1619 frames=248098 heap=5280 tasks=10 fds=0 t=161900
+SOAK r=313524001 s=1620 frames=248098 heap=5280 tasks=10 fds=0 t=162000
+SOAK r=313714001 s=1621 frames=248098 heap=5280 tasks=10 fds=0 t=162100
+SOAK r=313910001 s=1622 frames=248098 heap=5280 tasks=10 fds=0 t=162200
+SOAK r=314102001 s=1623 frames=248098 heap=5280 tasks=10 fds=0 t=162300
+SOAK r=314294001 s=1624 frames=248098 heap=5280 tasks=10 fds=0 t=162400
+SOAK r=314484001 s=1625 frames=248098 heap=5280 tasks=10 fds=0 t=162500
+SOAK r=314678001 s=1626 frames=248098 heap=5280 tasks=10 fds=0 t=162600
+SOAK r=314874001 s=1627 frames=248098 heap=5280 tasks=10 fds=0 t=162700
+SOAK r=315068001 s=1628 frames=248098 heap=5280 tasks=10 fds=0 t=162800
+SOAK r=315260001 s=1629 frames=248098 heap=5280 tasks=10 fds=0 t=162900
+SOAK r=315448001 s=1630 frames=248098 heap=5280 tasks=10 fds=0 t=163000
+SOAK r=315642001 s=1631 frames=248098 heap=5280 tasks=10 fds=0 t=163100
+SOAK r=315840001 s=1632 frames=248098 heap=5280 tasks=10 fds=0 t=163200
+SOAK r=316034001 s=1633 frames=248098 heap=5280 tasks=10 fds=0 t=163300
+SOAK r=316228001 s=1634 frames=248098 heap=5280 tasks=10 fds=0 t=163400
+SOAK r=316424001 s=1635 frames=248098 heap=5280 tasks=10 fds=0 t=163500
+SOAK r=316616001 s=1636 frames=248098 heap=5280 tasks=10 fds=0 t=163600
+SOAK r=316808001 s=1637 frames=248098 heap=5280 tasks=10 fds=0 t=163700
+SOAK r=317002001 s=1638 frames=248098 heap=5280 tasks=10 fds=0 t=163800
+SOAK r=317200001 s=1639 frames=248098 heap=5280 tasks=10 fds=0 t=163900
+SOAK r=317394001 s=1640 frames=248098 heap=5280 tasks=10 fds=0 t=164000
+SOAK r=317588001 s=1641 frames=248098 heap=5280 tasks=10 fds=0 t=164100
+SOAK r=317780001 s=1642 frames=248098 heap=5280 tasks=10 fds=0 t=164200
+SOAK r=317970001 s=1643 frames=248098 heap=5280 tasks=10 fds=0 t=164300
+SOAK r=318158001 s=1644 frames=248098 heap=5280 tasks=10 fds=0 t=164400
+SOAK r=318350001 s=1645 frames=248098 heap=5280 tasks=10 fds=0 t=164500
+SOAK r=318544001 s=1646 frames=248098 heap=5280 tasks=10 fds=0 t=164600
+SOAK r=318732001 s=1647 frames=248098 heap=5280 tasks=10 fds=0 t=164700
+SOAK r=318926001 s=1648 frames=248098 heap=5280 tasks=10 fds=0 t=164800
+SOAK r=319120001 s=1649 frames=248098 heap=5280 tasks=10 fds=0 t=164900
+SOAK r=319316001 s=1650 frames=248098 heap=5280 tasks=10 fds=0 t=165000
+SOAK r=319506001 s=1651 frames=248098 heap=5280 tasks=10 fds=0 t=165100
+SOAK r=319706001 s=1652 frames=248098 heap=5280 tasks=10 fds=0 t=165200
+SOAK r=319902001 s=1653 frames=248098 heap=5280 tasks=10 fds=0 t=165301
+SOAK r=320096001 s=1654 frames=248098 heap=5280 tasks=10 fds=0 t=165400
+SOAK r=320290001 s=1655 frames=248098 heap=5280 tasks=10 fds=0 t=165500
+SOAK r=320484001 s=1656 frames=248098 heap=5280 tasks=10 fds=0 t=165600
+SOAK r=320670001 s=1657 frames=248098 heap=5280 tasks=10 fds=0 t=165700
+SOAK r=320864001 s=1658 frames=248098 heap=5280 tasks=10 fds=0 t=165800
+SOAK r=321064001 s=1659 frames=248098 heap=5280 tasks=10 fds=0 t=165900
+SOAK r=321260001 s=1660 frames=248098 heap=5280 tasks=10 fds=0 t=166000
+SOAK r=321452001 s=1661 frames=248098 heap=5280 tasks=10 fds=0 t=166100
+SOAK r=321646001 s=1662 frames=248098 heap=5280 tasks=10 fds=0 t=166200
+SOAK r=321840001 s=1663 frames=248098 heap=5280 tasks=10 fds=0 t=166300
+SOAK r=322038001 s=1664 frames=248098 heap=5280 tasks=10 fds=0 t=166400
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=1664 verdict=ok
+SOAK r=322232001 s=1665 frames=248098 heap=5280 tasks=10 fds=0 t=166500
+SOAK r=322428001 s=1666 frames=248098 heap=5280 tasks=10 fds=0 t=166600
+SOAK r=322626001 s=1667 frames=248098 heap=5280 tasks=10 fds=0 t=166700
+SOAK r=322812001 s=1668 frames=248098 heap=5280 tasks=10 fds=0 t=166800
+SOAK r=323004001 s=1669 frames=248098 heap=5280 tasks=10 fds=0 t=166900
+SOAK r=323198001 s=1670 frames=248098 heap=5280 tasks=10 fds=0 t=167000
+SOAK r=323396001 s=1671 frames=248098 heap=5280 tasks=10 fds=0 t=167100
+SOAK r=323590001 s=1672 frames=248098 heap=5280 tasks=10 fds=0 t=167200
+SOAK r=323782001 s=1673 frames=248098 heap=5280 tasks=10 fds=0 t=167300
+SOAK r=323968001 s=1674 frames=248098 heap=5280 tasks=10 fds=0 t=167400
+SOAK r=324152001 s=1675 frames=248098 heap=5280 tasks=10 fds=0 t=167500
+SOAK r=324342001 s=1676 frames=248098 heap=5280 tasks=10 fds=0 t=167600
+SOAK r=324534001 s=1677 frames=248098 heap=5280 tasks=10 fds=0 t=167700
+SOAK r=324726001 s=1678 frames=248098 heap=5280 tasks=10 fds=0 t=167800
+SOAK r=324924001 s=1679 frames=248098 heap=5280 tasks=10 fds=0 t=167900
+SOAK r=325114001 s=1680 frames=248098 heap=5280 tasks=10 fds=0 t=168000
+SOAK r=325304001 s=1681 frames=248098 heap=5280 tasks=10 fds=0 t=168100
+SOAK r=325490001 s=1682 frames=248098 heap=5280 tasks=10 fds=0 t=168200
+SOAK r=325682001 s=1683 frames=248098 heap=5280 tasks=10 fds=0 t=168300
+SOAK r=325878001 s=1684 frames=248098 heap=5280 tasks=10 fds=0 t=168400
+SOAK r=326066001 s=1685 frames=248098 heap=5280 tasks=10 fds=0 t=168500
+SOAK r=326262001 s=1686 frames=248098 heap=5280 tasks=10 fds=0 t=168600
+SOAK r=326446001 s=1687 frames=248098 heap=5280 tasks=10 fds=0 t=168701
+SOAK r=326636001 s=1688 frames=248098 heap=5280 tasks=10 fds=0 t=168800
+SOAK r=326832001 s=1689 frames=248098 heap=5280 tasks=10 fds=0 t=168900
+SOAK r=327022001 s=1690 frames=248098 heap=5280 tasks=10 fds=0 t=169000
+SOAK r=327204001 s=1691 frames=248098 heap=5280 tasks=10 fds=0 t=169100
+SOAK r=327396001 s=1692 frames=248098 heap=5280 tasks=10 fds=0 t=169200
+SOAK r=327592001 s=1693 frames=248098 heap=5280 tasks=10 fds=0 t=169300
+SOAK r=327788001 s=1694 frames=248098 heap=5280 tasks=10 fds=0 t=169400
+SOAK r=327980001 s=1695 frames=248098 heap=5280 tasks=10 fds=0 t=169500
+SOAK r=328172001 s=1696 frames=248098 heap=5280 tasks=10 fds=0 t=169600
+SOAK r=328360001 s=1697 frames=248098 heap=5280 tasks=10 fds=0 t=169700
+SOAK r=328558001 s=1698 frames=248098 heap=5280 tasks=10 fds=0 t=169800
+SOAK r=328754001 s=1699 frames=248098 heap=5280 tasks=10 fds=0 t=169900
+SOAK r=328946001 s=1700 frames=248098 heap=5280 tasks=10 fds=0 t=170000
+SOAK r=329130001 s=1701 frames=248098 heap=5280 tasks=10 fds=0 t=170100
+SOAK r=329312001 s=1702 frames=248098 heap=5280 tasks=10 fds=0 t=170200
+SOAK r=329510001 s=1703 frames=248098 heap=5280 tasks=10 fds=0 t=170300
+SOAK r=329706001 s=1704 frames=248098 heap=5280 tasks=10 fds=0 t=170400
+SOAK r=329898001 s=1705 frames=248098 heap=5280 tasks=10 fds=0 t=170500
+SOAK r=330094001 s=1706 frames=248098 heap=5280 tasks=10 fds=0 t=170600
+SOAK r=330282001 s=1707 frames=248098 heap=5280 tasks=10 fds=0 t=170700
+SOAK r=330474001 s=1708 frames=248098 heap=5280 tasks=10 fds=0 t=170800
+SOAK r=330666001 s=1709 frames=248098 heap=5280 tasks=10 fds=0 t=170900
+SOAK r=330856001 s=1710 frames=248098 heap=5280 tasks=10 fds=0 t=171000
+SOAK r=331048001 s=1711 frames=248098 heap=5280 tasks=10 fds=0 t=171100
+SOAK r=331234001 s=1712 frames=248098 heap=5280 tasks=10 fds=0 t=171200
+SOAK r=331422001 s=1713 frames=248098 heap=5280 tasks=10 fds=0 t=171300
+SOAK r=331614001 s=1714 frames=248098 heap=5280 tasks=10 fds=0 t=171400
+SOAK r=331808001 s=1715 frames=248098 heap=5280 tasks=10 fds=0 t=171500
+SOAK r=332002001 s=1716 frames=248098 heap=5280 tasks=10 fds=0 t=171600
+SOAK r=332192001 s=1717 frames=248098 heap=5280 tasks=10 fds=0 t=171700
+SOAK r=332382001 s=1718 frames=248098 heap=5280 tasks=10 fds=0 t=171800
+SOAK r=332570001 s=1719 frames=248098 heap=5280 tasks=10 fds=0 t=171900
+SOAK r=332764001 s=1720 frames=248098 heap=5280 tasks=10 fds=0 t=172000
+SOAK r=332956001 s=1721 frames=248098 heap=5280 tasks=10 fds=0 t=172100
+SOAK r=333144001 s=1722 frames=248098 heap=5280 tasks=10 fds=0 t=172200
+SOAK r=333340001 s=1723 frames=248098 heap=5280 tasks=10 fds=0 t=172300
+SOAK r=333532001 s=1724 frames=248098 heap=5280 tasks=10 fds=0 t=172401
+SOAK r=333718001 s=1725 frames=248098 heap=5280 tasks=10 fds=0 t=172500
+SOAK r=333908001 s=1726 frames=248098 heap=5280 tasks=10 fds=0 t=172600
+SOAK r=334100001 s=1727 frames=248098 heap=5280 tasks=10 fds=0 t=172700
+SOAK r=334296001 s=1728 frames=248098 heap=5280 tasks=10 fds=0 t=172800
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=1728 verdict=ok
+SOAK r=334492001 s=1729 frames=248098 heap=5280 tasks=10 fds=0 t=172900
+SOAK r=334688001 s=1730 frames=248098 heap=5280 tasks=10 fds=0 t=173000
+SOAK r=334886001 s=1731 frames=248098 heap=5280 tasks=10 fds=0 t=173100
+SOAK r=335084001 s=1732 frames=248098 heap=5280 tasks=10 fds=0 t=173200
+SOAK r=335278001 s=1733 frames=248098 heap=5280 tasks=10 fds=0 t=173300
+SOAK r=335464001 s=1734 frames=248098 heap=5280 tasks=10 fds=0 t=173400
+SOAK r=335656001 s=1735 frames=248098 heap=5280 tasks=10 fds=0 t=173500
+SOAK r=335852001 s=1736 frames=248098 heap=5280 tasks=10 fds=0 t=173600
+SOAK r=336044001 s=1737 frames=248098 heap=5280 tasks=10 fds=0 t=173700
+SOAK r=336236001 s=1738 frames=248098 heap=5280 tasks=10 fds=0 t=173800
+SOAK r=336428001 s=1739 frames=248098 heap=5280 tasks=10 fds=0 t=173900
+SOAK r=336624001 s=1740 frames=248098 heap=5280 tasks=10 fds=0 t=174000
+SOAK r=336820001 s=1741 frames=248098 heap=5280 tasks=10 fds=0 t=174100
+SOAK r=337018001 s=1742 frames=248098 heap=5280 tasks=10 fds=0 t=174200
+SOAK r=337214001 s=1743 frames=248098 heap=5280 tasks=10 fds=0 t=174300
+SOAK r=337408001 s=1744 frames=248098 heap=5280 tasks=10 fds=0 t=174400
+SOAK r=337600001 s=1745 frames=248098 heap=5280 tasks=10 fds=0 t=174500
+SOAK r=337786001 s=1746 frames=248098 heap=5280 tasks=10 fds=0 t=174600
+SOAK r=337984001 s=1747 frames=248098 heap=5280 tasks=10 fds=0 t=174700
+SOAK r=338174001 s=1748 frames=248098 heap=5280 tasks=10 fds=0 t=174800
+SOAK r=338368001 s=1749 frames=248098 heap=5280 tasks=10 fds=0 t=174900
+SOAK r=338560001 s=1750 frames=248098 heap=5280 tasks=10 fds=0 t=175000
+SOAK r=338752001 s=1751 frames=248098 heap=5280 tasks=10 fds=0 t=175100
+SOAK r=338934001 s=1752 frames=248098 heap=5280 tasks=10 fds=0 t=175200
+SOAK r=339114001 s=1753 frames=248098 heap=5280 tasks=10 fds=0 t=175300
+SOAK r=339306001 s=1754 frames=248098 heap=5280 tasks=10 fds=0 t=175400
+SOAK r=339496001 s=1755 frames=248098 heap=5280 tasks=10 fds=0 t=175500
+SOAK r=339690001 s=1756 frames=248098 heap=5280 tasks=10 fds=0 t=175600
+SOAK r=339884001 s=1757 frames=248098 heap=5280 tasks=10 fds=0 t=175700
+SOAK r=340074001 s=1758 frames=248098 heap=5280 tasks=10 fds=0 t=175800
+SOAK r=340264001 s=1759 frames=248098 heap=5280 tasks=10 fds=0 t=175900
+SOAK r=340460001 s=1760 frames=248098 heap=5280 tasks=10 fds=0 t=176000
+SOAK r=340650001 s=1761 frames=248098 heap=5280 tasks=10 fds=0 t=176100
+SOAK r=340848001 s=1762 frames=248098 heap=5280 tasks=10 fds=0 t=176200
+SOAK r=341046001 s=1763 frames=248098 heap=5280 tasks=10 fds=0 t=176300
+SOAK r=341234001 s=1764 frames=248098 heap=5280 tasks=10 fds=0 t=176400
+SOAK r=341420001 s=1765 frames=248098 heap=5280 tasks=10 fds=0 t=176500
+SOAK r=341616001 s=1766 frames=248098 heap=5280 tasks=10 fds=0 t=176600
+SOAK r=341808001 s=1767 frames=248098 heap=5280 tasks=10 fds=0 t=176700
+SOAK r=342002001 s=1768 frames=248098 heap=5280 tasks=10 fds=0 t=176800
+SOAK r=342192001 s=1769 frames=248098 heap=5280 tasks=10 fds=0 t=176900
+SOAK r=342390001 s=1770 frames=248098 heap=5280 tasks=10 fds=0 t=177000
+SOAK r=342578001 s=1771 frames=248098 heap=5280 tasks=10 fds=0 t=177100
+SOAK r=342774001 s=1772 frames=248098 heap=5280 tasks=10 fds=0 t=177200
+SOAK r=342966001 s=1773 frames=248098 heap=5280 tasks=10 fds=0 t=177300
+SOAK r=343156001 s=1774 frames=248098 heap=5280 tasks=10 fds=0 t=177400
+SOAK r=343346001 s=1775 frames=248098 heap=5280 tasks=10 fds=0 t=177500
+SOAK r=343534001 s=1776 frames=248098 heap=5280 tasks=10 fds=0 t=177600
+SOAK r=343720001 s=1777 frames=248098 heap=5280 tasks=10 fds=0 t=177700
+SOAK r=343908001 s=1778 frames=248098 heap=5280 tasks=10 fds=0 t=177800
+SOAK r=344096001 s=1779 frames=248098 heap=5280 tasks=10 fds=0 t=177900
+SOAK r=344294001 s=1780 frames=248098 heap=5280 tasks=10 fds=0 t=178000
+SOAK r=344478001 s=1781 frames=248098 heap=5280 tasks=10 fds=0 t=178100
+SOAK r=344674001 s=1782 frames=248098 heap=5280 tasks=10 fds=0 t=178200
+SOAK r=344868001 s=1783 frames=248098 heap=5280 tasks=10 fds=0 t=178300
+SOAK r=345060001 s=1784 frames=248098 heap=5280 tasks=10 fds=0 t=178400
+SOAK r=345254001 s=1785 frames=248098 heap=5280 tasks=10 fds=0 t=178500
+SOAK r=345450001 s=1786 frames=248098 heap=5280 tasks=10 fds=0 t=178600
+SOAK r=345640001 s=1787 frames=248098 heap=5280 tasks=10 fds=0 t=178700
+SOAK r=345838001 s=1788 frames=248098 heap=5280 tasks=10 fds=0 t=178800
+SOAK r=346030001 s=1789 frames=248098 heap=5280 tasks=10 fds=0 t=178900
+SOAK r=346220001 s=1790 frames=248098 heap=5280 tasks=10 fds=0 t=179000
+SOAK r=346416001 s=1791 frames=248098 heap=5280 tasks=10 fds=0 t=179100
+SOAK r=346608001 s=1792 frames=248098 heap=5280 tasks=10 fds=0 t=179200
+SOAK-REG samples=64 slope_frames=0 slope_heap=0 slope_fds=0 delta_frames=0 delta_heap=0 rounds=1792 verdict=ok
+SOAK r=346802001 s=1793 frames=248098 heap=5280 tasks=10 fds=0 t=179300
+SOAK r=346992001 s=1794 frames=248098 heap=5280 tasks=10 fds=0 t=179400
+SOAK r=347180001 s=1795 frames=248098 heap=5280 tasks=10 fds=0 t=179500
+SOAK r=347374001 s=1796 frames=248098 heap=5280 tasks=10 fds=0 t=179600
+SOAK r=347560001 s=1797 frames=248098 heap=5280 tasks=10 fds=0 t=179700
+SOAK r=347756001 s=1798 frames=248098 heap=5280 tasks=10 fds=0 t=179800
+SOAK r=347948001 s=1799 frames=248098 heap=5280 tasks=10 fds=0 t=179900
+SOAK r=348138001 s=1800 frames=248098 heap=5280 tasks=10 fds=0 t=180000
+SOAK r=348328001 s=1801 frames=248098 heap=5280 tasks=10 fds=0 t=180100
+SOAK r=348526001 s=1802 frames=248098 heap=5280 tasks=10 fds=0 t=180200
+SOAK r=348722001 s=1803 frames=248098 heap=5280 tasks=10 fds=0 t=180300
+SOAK r=348912001 s=1804 frames=248098 heap=5280 tasks=10 fds=0 t=180400
+SOAK r=349106001 s=1805 frames=248098 heap=5280 tasks=10 fds=0 t=180500
+SOAK r=349298001 s=1806 frames=248098 heap=5280 tasks=10 fds=0 t=180600
+SOAK r=349490001 s=1807 frames=248098 heap=5280 tasks=10 fds=0 t=180700
+SOAK r=349680001 s=1808 frames=248098 heap=5280 tasks=10 fds=0 t=180800
+SOAK r=349866001 s=1809 frames=248098 heap=5280 tasks=10 fds=0 t=180900
+SOAK r=350064001 s=1810 frames=248098 heap=5280 tasks=10 fds=0 t=181000
+SOAK r=350260001 s=1811 frames=248098 heap=5280 tasks=10 fds=0 t=181100
+SOAK r=350456001 s=1812 frames=248098 heap=5280 tasks=10 fds=0 t=181200

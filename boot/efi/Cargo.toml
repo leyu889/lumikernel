@@ -1,0 +1,14 @@
+[package]
+name = "lumi-efi"
+version = "0.1.0"
+edition = "2021"
+
+# 故意**不**放进内核 workspace：这个 crate 目标是 x86_64-unknown-uefi，
+# 和内核（x86_64-unknown-none）的构建参数完全不同。放一起会让
+# `cargo build` 在宿主 target 上把它也拉进来编译，直接报错。
+[workspace]
+
+[profile.release]
+panic = "abort"
+opt-level = 1
+lto = false

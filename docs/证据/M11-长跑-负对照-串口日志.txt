@@ -1,0 +1,392 @@
+[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[LumiEFI] UEFI loader up
+[LumiEFI] kernel blob found
+[LumiEFI] kernel copied to 0x100000
+[LumiEFI] kernel[0..8]=
+53b003f8ba66fcfa
+[LumiEFI] blob[0..8]=
+53b003f8ba66fcfa
+[LumiEFI] e820 entries=
+0000000000000011
+[LumiEFI] readback@0x9000=
+00ef000040000011
+[LumiEFI] dsize=
+0000000000000030
+ACSK
+==================================================
+  LumiKernel 1.2.0  (milestone M11)
+  UEFI + BIOS dual boot, own AHCI(SATA) driver, linux abi
+  fault injection + fuzz + soak regression, 57 self-checks
+==================================================
+  凝光内核 · 宏内核 · x86_64 · ACPI/MADT · APIC/IOAPIC · ring3 · 系统调用 · 抢占
+[ OK ] idt:  vectors=48 idtr=0xffffffff80248328 limit=4095
+[ OK ] gdt:  base=0xffffffff80247e80 limit=71 tr=0x38
+       8 项：内核代码/数据 + 用户代码/数据(DPL3) + TSS；rsp0=0xffffffff8014f000 ist1=0xffffffff8014b000
+[ OK ] ist:  df_ist=1 syscall_dpl=3 tr=0x38
+       #DF 挂在 IST1 上（栈坏了也能打出报告）；int 0x80 的门是 DPL=3，ring3 才进得来
+[ OK ] syscall: efer=0xd01 lstar=0xffffffff80100194 fmask=0x47700
+       `syscall` 指令通道就绪（EFER.SCE=1、LSTAR 指向入口、FMASK 清掉 IF/DF/TF）：musl 静态程序只认这条路，`int 0x80` 保留给自检
+[ OK ] e820:  entries=17 usable=975MiB boot=uefi
+       物理内存地图（串口完整版）:
+         0x0000000000 + 0x0000087000  type=1 可用
+         0x0000087000 + 0x0000001000  type=2 保留
+         0x0000088000 + 0x0000018000  type=1 可用
+         0x0000100000 + 0x0000047000  type=2 保留
+         0x0000147000 + 0x003ba95000  type=1 可用
+         0x003bbdc000 + 0x0000020000  type=2 保留
+         0x003bbfc000 + 0x0001370000  type=1 可用
+         0x003cf6c000 + 0x0000056000  type=2 保留
+         0x003cfc2000 + 0x0000046000  type=1 可用
+         0x003d008000 + 0x0001965000  type=2 保留
+         0x003e96d000 + 0x0000012000  type=3 ACPI 可回收
+         0x003e97f000 + 0x0000080000  type=4 ACPI NVS
+         0x003e9ff000 + 0x0000601000  type=2 保留
+         0x003f000000 + 0x00000c0000  type=1 可用
+         0x003f0c0000 + 0x0000061000  type=2 保留
+         0x003f121000 + 0x0000002000  type=4 ACPI NVS
+         0x003f123000 + 0x0000ecd000  type=2 保留
+[ OK ] frames:  total=1008MiB free=974MiB frames=249346 e820=975MiB
+[ OK ] reserve: kernel=0x100000..0x250000 first_free=0x250000
+[ OK ] heap:  base=0x250000 size=4096KiB used=0B audit=ok
+       LAPIC 已使能：mmio=0xffffa00000200000 id=0 目标核数=4 定时器 GSI=0
+[ OK ] acpi:  cpus=4 apic_id=0 timer_gsi=0
+       MADT @0x3fff0240：4 个 CPU，LAPIC @0xfee00000，ISA IRQ0 路由到 GSI 0，中断已切到 APIC
+[ OK ] ioapic-irq: gsi=2 ticks=20 pit_div=11931
+       PIT 的中断经 I/O APIC 重定向（GSI 2）后到达：8259A 已经被彻底绕开
+[ OK ] apic-timer: hz=100 init=10000088 ticks=20
+       每核自己的定时器跑起来了（初值 10000088 由 RTC 秒边界校准）—— 这才是多核时间片的基础
+       校准基准 = RTC 秒边界：APIC 定时器 10000088 counts/10ms，10ms = 35043398 个 TSC tick
+       校准那一秒里原 tick 源（PIT 经 I/O APIC）实际打了 101 次
+[ OK ] pic:  fully masked (0xff 0xff)
+[ OK ] high-half:  rip=0xffffffff8011dc54
+[ OK ] paging:  cr0.pg=1 cr4.pae=1 cr3=0x14f000
+[ OK ] paging-test: pml4=1 page pattern=0x4c756d694b65726e frames=back
+[ OK ] frames-stress: n=512 unique=1 returned=248319
+[ OK ] exception: de=caught bp=caught hits=2
+[ OK ] guard-page: addr=0xffffa00000005123 pf=p0 read+write caught frames=back
+[ OK ] slab:  objs=600 pages=123 order=shuffled audit=ok leak=0
+[ OK ] task:  self=task0 state=running quantum=1ticks
+       当前这段代码本身变成了 0 号任务，后面创建的线程与它同场竞争
+hello from ring3
+[ OK ] ring3:  exit=7 syscalls_from_cpl3=2 wrote=17B
+       用户程序在 CPL=3 跑完：int 0x80 进来两次，写出 17 字节，最后 exit(7)
+[ OK ] kthreads: 3 threads x 8000000 iters done, switches=17 preempted=14
+       三个内核线程都没有主动让出 CPU，能跑完说明是时钟中断把它们切开的
+[ OK ] preempt: preempted=15 switches=19 exited=4 ticked=1
+       时间片耗尽强制切换 15 次（三个线程都没主动让出）；每个任务都被记过 tick —— 抢占是真的
+       AP#1 apic=1 stack=0xffff800000667000 online=true stage=8 wakeups=1
+       AP#2 apic=2 stack=0xffff80000066b000 online=true stage=8 wakeups=1
+       AP#3 apic=3 stack=0xffff80000066f000 online=true stage=8 wakeups=1
+[ OK ] smp: online=4/4 started=3 bsp_apic=0
+       已上线：cpu0=apic0 cpu1=apic1 cpu2=apic2 cpu3=apic3
+       cpu1 独立内核栈 top=0xffff800000667000
+       cpu2 独立内核栈 top=0xffff80000066b000
+       cpu3 独立内核栈 top=0xffff80000066f000
+[ OK ] parallel: cores=4 min_work=40896136 bsp_work=371014656
+       200 ms 窗口内 4 个核同时执行：每核自己数循环次数，最少 40896136 次（BSP 371014656 次，含 rdtsc 开销）
+       静息态实测 APIC 定时器：99 Hz（配置 100 Hz；样本 20 tick / 700868059 TSC）
+[ OK ] smp-timer: cpus=4 all_ticking=1 ticks=[30..32]
+       4 个核各自被自己的 LAPIC 定时器打断（最少 30 次、最多 32 次）—— 每核独立时基
+[ OK ] ipi:  broadcast_vec=241 acked=3/3
+       向量 241 广播出去，3 个 AP 全部应答 —— 多核调度的 reschedule IPI 通道打通了
+       AHCI 控制器就位：ABAR=0x81404000，1 个端口在线（系统盘 131072 扇区，数据盘 0 扇区）
+       从盘（数据盘）：131072 扇区 = 65536 KiB
+[ OK ] disk: sectors=131072 blocks=65536KiB transport=ahci magic=0xef53
+       经 ahci 读到 131072 个 512B 扇区（65536 KiB），超级块魔数 0xef53 对上了
+       根目录内容：bin hello.txt
+[ OK ] ext2:  blocks=65536 root_entries=4 hello.txt=76B
+       ext2 挂载成功：根目录 4 项，第一个条目 "bin"；/hello.txt = 76 字节
+[ OK ] file:  open/read/close ok bytes=76
+       读到 76 字节，开头是：this line came from an e
+       close 之后打开数为 0（fd 表没有泄漏）
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+[ OK ] elf:  segs=1 entry=0x400000 pages=1 mem=20KiB exit=9 calls=6 out_b=96
+       从磁盘上的 /bin/hello 装载：1 段 / 1 页，入口 0x400000，退出码 9，ring3 系统调用 6 次，输出 96 字节
+[ OK ] reject: missing=err badelf=err dir=err badfd=err
+       坏输入都被挡在门口：不存在的路径、假 ELF、打开目录、关无效 fd —— 内核没有因此崩
+[ OK ] addrspace: a=0x684000 b=0x695000 kern=0x14f000 same_entry=0x400000
+       同一个 ELF 装成两个进程：页表 0x684000 与 0x695000 互不相同，也都不是内核的 0x14f000；入口地址相同（0x400000）但物理页不同
+p1 ok
+p0 ok
+[ OK ] 2proc: exit=Some(9)/Some(9) switches=6 ticks=3/1 out="p1 ok.p0 ok."
+       两个进程各跑各的：都报 ok（同一个 0x600000 地址各加 300 次，互不干扰）；窗口内切换 6 次（它们真的在时间片上交叉）
+[ OK ] elf-guard: bad_entry=err bad_seg=err
+       指向内核地址的 ELF（入口越界 / 段越界）都被装载器拒绝 —— 用户程序不能给自己装一页内核
+[ OK ] fd-table: peer_fd=3 my_fd=3 same_file_bytes=12
+       两个任务各自打开同一个文件，**各自的 fd 都从 3 开始**；我在自己的表里读到 12 字节（偏移互不影响）
+[ OK ] pipe: blocked=2 frozen_ticks=1 write=4 read=4 word=0x70696e67 wait_code=0
+       读者与等待者都真的睡下了（ticks 停在 0 不涨），写入 4 字节后两者依次被唤醒；等待者拿到的退出码是 0
+       本次新增阻塞 1 次 / 唤醒 2 次；累计创建管道 1 个
+[ OK ] pipe-eof: order=1 epipe=1 eof=1 fds_closed=1
+       走 fd 层：写端全关 → 读端先读完缓冲再拿到 EOF（0）；读端全关 → 写端拿到 EPIPE；关完全部 fd 表回到空
+p1 ok
+p0 ok
+p1 ok
+[ OK ] reap: runs=3 pages=18 tables=21 frames 248098 -> 248098
+       跑完并回收 3 个进程：退掉 18 个数据页 + 21 个页表页，可用帧数精确回到起点（248098）—— 进程退出不再漏内存（累计回收 4 个）
+       PCI：扫了 1 条总线，发现 7 个设备，其中存储控制器 1、桥 0
+         00:00.0 8086:1237 桥 prog_if=0x00 BAR0=0x0 (MEM)
+         00:01.0 8086:7000 桥 prog_if=0x00 BAR0=0x0 (MEM)
+         00:02.0 80ee:beef 显示控制器 prog_if=0x00 BAR0=0x80000000 (MEM)
+         00:04.0 80ee:cafe 系统外设 prog_if=0x00 BAR0=0xc140 (IO)
+         00:05.0 8086:2415 多媒体 prog_if=0x00 BAR0=0xc000 (IO)
+         00:07.0 8086:7113 桥 prog_if=0x00 BAR0=0x0 (MEM)
+         00:0d.0 8086:2829 存储控制器 prog_if=0x01 BAR0=0xc170 (IO)
+[ OK ] pci:  devs=7 buses=1 storage=1 bridges=0
+[ OK ] lumifs: blocks=65536 free=65520 entries=0 seq=0 formatted=1
+       数据盘挂载成功：65536 块（65536 KiB），空闲 65520，日志序号 0，块缓存命中/未命中=4/6，首次使用，已由内核格式化
+[ OK ] write: bytes=2500 readback=2500 match=1 ino=0
+       写 2500 字节（跨 3 块，受单次事务上限限制分成两次提交），读回逐字节一致；inode=0
+       重挂载后：日志重放=false（正常卸载后应为 false），缓存命中/未命中 48/24
+[ OK ] persist: remount=1 replayed=0 bytes=2500
+       卸载再挂载，文件内容逐字节一致；没有走日志重放（说明是正常落盘的，不是靠重放兜的）
+[ OK ] journal: armed_seq=4 replayed=1 blocks=2 content=1
+       造出掉电现场（日志已提交、数据未落地）→ 重挂载 → 重放 2 块 → 文件内容是新的那份。日志真的救了数据。
+[ OK ] cache: hits_gained=12 dirty_after_sync=0
+       同一块连读 5 次，缓存命中 12 次（真正省掉了 ATA 读）；sync 之后脏块数 0
+[ OK ] unlink: gone=1 blocks_restored=1
+       建一个文件写 1 KiB 再删掉：名字查不到了，空闲块数精确回到写之前
+[ OK ] vfs:  root=dir hello=76B dev_null=chr entries=4 open_dirs=0
+       一条路径进来，按挂载点分派：/ 是只读 ext2、/data 是可写 LumiFS、/dev 是合成设备；目录快照 4 项、句柄全部归还
+LUMI-M9
+bin
+hello.txt
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+       reap(sh): pages=285 tables=7 ok=1
+[ OK ] busybox: sh/echo=1 ls=1 cat=1 exit=0 bytes=98
+       musl 静态 busybox 跑通：`sh -c 'echo; ls /; cat /hello.txt'` 三件事全部有输出（ELF 装载 + 初始栈 + 符号链接 + fork/exec/wait4）
+[ OK ] linux-abi: syscall_insns=70 from_cpl3=70
+       `syscall` 指令通道累计 70 次（其中来自 CPL3 的 70 次）：这些不是内核自检，是 busybox 自己发的
+[ OK ] reap: frames 248098 -> 248098 zombies=9 double_free=0
+       busybox 那一轮 fork/exec 用掉的帧全部归还（248098 -> 248098），没有重复释放
+[ OK ] isolate: user_faults=0 kernel_alive=1
+       这一轮没有用户态异常；即便有，也只会杀掉那个进程以 139 退出、内核继续跑
+[ OK ] fault.frame: 200/200 返回 None，恢复后帧数 248098 -> 248098，系统可服务
+       物理帧注入 200 次：每次都由 alloc_frame 返回 None（没有 panic、没有重复发放），解除注入后立刻能分配、帧数精确回到 248098
+[ OK ] fault.heap: try_reserve 拿到 Err，解除后成功，堆审计通过
+       堆注入：分配返回空指针 → `try_reserve_exact` 得到 `Err`（不是 panic）；解除注入后立刻分配成功，堆结构未被破坏
+[ OK ] fault.disk: 读失败被上传为 Err，恢复后 76 字节逐字节一致
+       块设备注入：路径解析拿到 `Err`（不是旧数据、不是垃圾）；解除后重新读到 76 字节且内容与注入前完全一致
+[ OK ] fuzz: syscall×20000 path×5000 无 panic，frames 248098 fd 0->0 tasks 10
+       fuzz 2 万次调用（含页边界/用户上界/内核地址/-1 等 26 个边界值）+5000 条畸形路径：全部返回错误码，没有 panic，也没有留下帧/句柄/任务
+[ OK ] soak: 64 采样 × 500 轮，帧斜率 0‰ 堆斜率 0‰ 首尾差 0（40 ms）
+       加速长跑：32000 轮 / 256000 次操作 / 40 ms；空闲帧与堆占用的回归斜率为 0‰、首尾差为 0 —— 没有泄漏。30 天版用 scripts/soak.sh，判定代码是同一份
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+# bench (rdtsc cycles/op) 0
+getpid 379
+write_null 731
+open_close 4697
+read_4k 7263
+read_total_bytes 1131168
+mmap_unmap_64k 1373008
+fork_wait 33798155
+pipe_rtt 3265
+# done 0
+[ OK ] perf: frame=30ns heap=28ns read=36MiB/s lumifs=11103218ns exec=159802ns pipe1k=243ns
+       TSC 3504 MHz；帧分配+归还 30 ns/次，256B 堆分配 28 ns/次，ext2 顺序读 36 MiB/s（1104 KiB），LumiFS 1KiB 写+flush 11103218 ns，fork+exec+wait+reap 159802 ns，管道 1KiB 往返 243 ns，每次读 4083 次块 I/O
+[ OK ] stack: 高水位 65 KiB / 256 KiB (25%), 金丝雀完好
+       内核栈用量 65 KiB（上限 256 KiB，占 25%）：栈底金丝雀未被触碰——溢出会在踩坏页表之前先被这里抓到
+抢占禁用深度 = 0（必须为 0）
+--------------------------------------------------
+M11 self-test 58/58 passed
+[LIVE] kernel healthy: 4 cpus, uefi+sata, 0 panic, 0 leak
+M11 全部通过：4 个核在线；故障注入 200 次全部优雅失败、fuzz 2.5 万次零 panic、加速长跑零漂移、性能数据见 docs/06-性能对比.md
+这是第一个可发布版本：v1.2.0（M11）。30 天长跑与真机验证由 scripts/ 下的脚本执行
+--------------------------------------------------
+累计 tick = 1214（≈12140 ms） 切换 = 1256 系统调用 = 143（来自 CPL3 143）
+非定时器中断 0 次（应为 0）；当前任务 user=false
+--------------------------------------------------
+[SOAK] 长跑模式：采样间隔 100 tick（1 s）
+[SOAK] 负载：帧 / 堆 / 文件 / 管道 / 目录 / fork+exec / LumiFS 写
+[SOAK] **负对照构建**：每 5000 轮故意漏 1 帧
+[SOAK] 退出方式：关机（没有别的办法，这是故意的）
+[SOAK] start interval=100 ticks load=frames+heap+file+pipe+dir+exec+lumifs
+SOAK r=194001 s=1 frames=248059 heap=5280 tasks=10 fds=0 t=100
+SOAK r=388001 s=2 frames=248020 heap=5280 tasks=10 fds=0 t=200
+SOAK r=584001 s=3 frames=247981 heap=5280 tasks=10 fds=0 t=300
+SOAK r=782001 s=4 frames=247941 heap=5280 tasks=10 fds=0 t=400
+SOAK r=982001 s=5 frames=247901 heap=5280 tasks=10 fds=0 t=500
+SOAK r=1178001 s=6 frames=247862 heap=5280 tasks=10 fds=0 t=600
+SOAK r=1374001 s=7 frames=247823 heap=5280 tasks=10 fds=0 t=701
+SOAK r=1568001 s=8 frames=247784 heap=5280 tasks=10 fds=0 t=800
+SOAK r=1762001 s=9 frames=247745 heap=5280 tasks=10 fds=0 t=900
+SOAK r=1958001 s=10 frames=247706 heap=5280 tasks=10 fds=0 t=1000
+SOAK r=2152001 s=11 frames=247667 heap=5280 tasks=10 fds=0 t=1100
+SOAK r=2344001 s=12 frames=247629 heap=5280 tasks=10 fds=0 t=1200
+SOAK r=2542001 s=13 frames=247589 heap=5280 tasks=10 fds=0 t=1300
+SOAK r=2738001 s=14 frames=247550 heap=5280 tasks=10 fds=0 t=1400
+SOAK r=2936001 s=15 frames=247510 heap=5280 tasks=10 fds=0 t=1500
+SOAK r=3128001 s=16 frames=247472 heap=5280 tasks=10 fds=0 t=1600
+SOAK r=3322001 s=17 frames=247433 heap=5280 tasks=10 fds=0 t=1700
+SOAK r=3522001 s=18 frames=247393 heap=5280 tasks=10 fds=0 t=1800
+SOAK r=3720001 s=19 frames=247353 heap=5280 tasks=10 fds=0 t=1900
+SOAK r=3916001 s=20 frames=247314 heap=5280 tasks=10 fds=0 t=2000
+SOAK r=4114001 s=21 frames=247275 heap=5280 tasks=10 fds=0 t=2100
+SOAK r=4312001 s=22 frames=247235 heap=5280 tasks=10 fds=0 t=2200
+SOAK r=4510001 s=23 frames=247195 heap=5280 tasks=10 fds=0 t=2300
+SOAK r=4706001 s=24 frames=247156 heap=5280 tasks=10 fds=0 t=2400
+SOAK r=4902001 s=25 frames=247117 heap=5280 tasks=10 fds=0 t=2500
+SOAK r=5098001 s=26 frames=247078 heap=5280 tasks=10 fds=0 t=2600
+SOAK r=5294001 s=27 frames=247039 heap=5280 tasks=10 fds=0 t=2700
+SOAK r=5494001 s=28 frames=246999 heap=5280 tasks=10 fds=0 t=2800
+SOAK r=5694001 s=29 frames=246959 heap=5280 tasks=10 fds=0 t=2901
+SOAK r=5890001 s=30 frames=246919 heap=5280 tasks=10 fds=0 t=3000
+SOAK r=6084001 s=31 frames=246881 heap=5280 tasks=10 fds=0 t=3100
+SOAK r=6282001 s=32 frames=246841 heap=5280 tasks=10 fds=0 t=3201
+SOAK r=6478001 s=33 frames=246802 heap=5280 tasks=10 fds=0 t=3300
+SOAK r=6674001 s=34 frames=246763 heap=5280 tasks=10 fds=0 t=3400
+SOAK r=6872001 s=35 frames=246723 heap=5280 tasks=10 fds=0 t=3500
+SOAK r=7070001 s=36 frames=246683 heap=5280 tasks=10 fds=0 t=3600
+SOAK r=7268001 s=37 frames=246644 heap=5280 tasks=10 fds=0 t=3700
+SOAK r=7464001 s=38 frames=246605 heap=5280 tasks=10 fds=0 t=3800
+SOAK r=7664001 s=39 frames=246565 heap=5280 tasks=10 fds=0 t=3900
+SOAK r=7858001 s=40 frames=246526 heap=5280 tasks=10 fds=0 t=4000
+SOAK r=8050001 s=41 frames=246487 heap=5280 tasks=10 fds=0 t=4100
+SOAK r=8250001 s=42 frames=246447 heap=5280 tasks=10 fds=0 t=4200
+SOAK r=8448001 s=43 frames=246408 heap=5280 tasks=10 fds=0 t=4300
+SOAK r=8642001 s=44 frames=246369 heap=5280 tasks=10 fds=0 t=4400
+SOAK r=8836001 s=45 frames=246330 heap=5280 tasks=10 fds=0 t=4500
+SOAK r=9032001 s=46 frames=246291 heap=5280 tasks=10 fds=0 t=4600
+SOAK r=9230001 s=47 frames=246251 heap=5280 tasks=10 fds=0 t=4700
+SOAK r=9428001 s=48 frames=246212 heap=5280 tasks=10 fds=0 t=4800
+SOAK r=9624001 s=49 frames=246173 heap=5280 tasks=10 fds=0 t=4900
+SOAK r=9818001 s=50 frames=246134 heap=5280 tasks=10 fds=0 t=5000
+SOAK r=10014001 s=51 frames=246095 heap=5280 tasks=10 fds=0 t=5100
+SOAK r=10212001 s=52 frames=246055 heap=5280 tasks=10 fds=0 t=5200
+SOAK r=10408001 s=53 frames=246016 heap=5280 tasks=10 fds=0 t=5300
+SOAK r=10602001 s=54 frames=245977 heap=5280 tasks=10 fds=0 t=5400
+SOAK r=10800001 s=55 frames=245937 heap=5280 tasks=10 fds=0 t=5500
+SOAK r=11000001 s=56 frames=245897 heap=5280 tasks=10 fds=0 t=5600
+SOAK r=11198001 s=57 frames=245858 heap=5280 tasks=10 fds=0 t=5700
+SOAK r=11394001 s=58 frames=245819 heap=5280 tasks=10 fds=0 t=5800
+SOAK r=11594001 s=59 frames=245779 heap=5280 tasks=10 fds=0 t=5900
+SOAK r=11792001 s=60 frames=245739 heap=5280 tasks=10 fds=0 t=6000
+SOAK r=11992001 s=61 frames=245699 heap=5280 tasks=10 fds=0 t=6100
+SOAK r=12188001 s=62 frames=245660 heap=5280 tasks=10 fds=0 t=6200
+SOAK r=12378001 s=63 frames=245622 heap=5280 tasks=10 fds=0 t=6300
+SOAK r=12576001 s=64 frames=245582 heap=5280 tasks=10 fds=0 t=6400
+SOAK-REG samples=64 slope_frames=-39325 slope_heap=0 slope_fds=0 delta_frames=-2477 delta_heap=0 rounds=64 verdict=drift
+SOAK r=12776001 s=65 frames=245542 heap=5280 tasks=10 fds=0 t=6500
+SOAK r=12976001 s=66 frames=245502 heap=5280 tasks=10 fds=0 t=6600
+SOAK r=13176001 s=67 frames=245462 heap=5280 tasks=10 fds=0 t=6700
+SOAK r=13374001 s=68 frames=245423 heap=5280 tasks=10 fds=0 t=6800
+SOAK r=13570001 s=69 frames=245383 heap=5280 tasks=10 fds=0 t=6900
+SOAK r=13766001 s=70 frames=245344 heap=5280 tasks=10 fds=0 t=7000
+SOAK r=13962001 s=71 frames=245305 heap=5280 tasks=10 fds=0 t=7100
+SOAK r=14160001 s=72 frames=245265 heap=5280 tasks=10 fds=0 t=7200
+SOAK r=14354001 s=73 frames=245227 heap=5280 tasks=10 fds=0 t=7300
+SOAK r=14550001 s=74 frames=245187 heap=5280 tasks=10 fds=0 t=7400
+SOAK r=14748001 s=75 frames=245148 heap=5280 tasks=10 fds=0 t=7500
+SOAK r=14944001 s=76 frames=245109 heap=5280 tasks=10 fds=0 t=7600
+SOAK r=15140001 s=77 frames=245069 heap=5280 tasks=10 fds=0 t=7700
+SOAK r=15338001 s=78 frames=245030 heap=5280 tasks=10 fds=0 t=7800
+SOAK r=15538001 s=79 frames=244990 heap=5280 tasks=10 fds=0 t=7900
+SOAK r=15736001 s=80 frames=244950 heap=5280 tasks=10 fds=0 t=8000
+SOAK r=15934001 s=81 frames=244911 heap=5280 tasks=10 fds=0 t=8100
+SOAK r=16132001 s=82 frames=244871 heap=5280 tasks=10 fds=0 t=8200
+SOAK r=16332001 s=83 frames=244831 heap=5280 tasks=10 fds=0 t=8300
+SOAK r=16530001 s=84 frames=244791 heap=5280 tasks=10 fds=0 t=8400
+SOAK r=16728001 s=85 frames=244752 heap=5280 tasks=10 fds=0 t=8500
+SOAK r=16928001 s=86 frames=244712 heap=5280 tasks=10 fds=0 t=8600
+SOAK r=17126001 s=87 frames=244672 heap=5280 tasks=10 fds=0 t=8700
+SOAK r=17322001 s=88 frames=244633 heap=5280 tasks=10 fds=0 t=8800
+SOAK r=17518001 s=89 frames=244594 heap=5280 tasks=10 fds=0 t=8900
+SOAK r=17712001 s=90 frames=244555 heap=5280 tasks=10 fds=0 t=9000
+SOAK r=17906001 s=91 frames=244516 heap=5280 tasks=10 fds=0 t=9100
+SOAK r=18100001 s=92 frames=244477 heap=5280 tasks=10 fds=0 t=9200
+SOAK r=18296001 s=93 frames=244438 heap=5280 tasks=10 fds=0 t=9300
+SOAK r=18492001 s=94 frames=244399 heap=5280 tasks=10 fds=0 t=9400
+SOAK r=18690001 s=95 frames=244359 heap=5280 tasks=10 fds=0 t=9500
+SOAK r=18888001 s=96 frames=244320 heap=5280 tasks=10 fds=0 t=9600
+SOAK r=19086001 s=97 frames=244280 heap=5280 tasks=10 fds=0 t=9700
+SOAK r=19284001 s=98 frames=244241 heap=5280 tasks=10 fds=0 t=9800
+SOAK r=19484001 s=99 frames=244201 heap=5280 tasks=10 fds=0 t=9900
+SOAK r=19684001 s=100 frames=244161 heap=5280 tasks=10 fds=0 t=10000
+SOAK r=19882001 s=101 frames=244121 heap=5280 tasks=10 fds=0 t=10100
+SOAK r=20078001 s=102 frames=244082 heap=5280 tasks=10 fds=0 t=10200
+SOAK r=20276001 s=103 frames=244042 heap=5280 tasks=10 fds=0 t=10300
+SOAK r=20476001 s=104 frames=244002 heap=5280 tasks=10 fds=0 t=10400
+SOAK r=20670001 s=105 frames=243963 heap=5280 tasks=10 fds=0 t=10500
+SOAK r=20866001 s=106 frames=243924 heap=5280 tasks=10 fds=0 t=10600
+SOAK r=21064001 s=107 frames=243885 heap=5280 tasks=10 fds=0 t=10700
+SOAK r=21262001 s=108 frames=243845 heap=5280 tasks=10 fds=0 t=10800
+SOAK r=21460001 s=109 frames=243805 heap=5280 tasks=10 fds=0 t=10900
+SOAK r=21656001 s=110 frames=243766 heap=5280 tasks=10 fds=0 t=11000
+SOAK r=21854001 s=111 frames=243727 heap=5280 tasks=10 fds=0 t=11100
+SOAK r=22054001 s=112 frames=243687 heap=5280 tasks=10 fds=0 t=11200
+SOAK r=22252001 s=113 frames=243647 heap=5280 tasks=10 fds=0 t=11300
+SOAK r=22452001 s=114 frames=243607 heap=5280 tasks=10 fds=0 t=11400
+SOAK r=22648001 s=115 frames=243568 heap=5280 tasks=10 fds=0 t=11500
+SOAK r=22846001 s=116 frames=243528 heap=5280 tasks=10 fds=0 t=11600
+SOAK r=23046001 s=117 frames=243488 heap=5280 tasks=10 fds=0 t=11700
+SOAK r=23240001 s=118 frames=243449 heap=5280 tasks=10 fds=0 t=11800
+SOAK r=23440001 s=119 frames=243409 heap=5280 tasks=10 fds=0 t=11900
+SOAK r=23638001 s=120 frames=243370 heap=5280 tasks=10 fds=0 t=12000
+SOAK r=23828001 s=121 frames=243332 heap=5280 tasks=10 fds=0 t=12100
+SOAK r=24028001 s=122 frames=243292 heap=5280 tasks=10 fds=0 t=12200
+SOAK r=24226001 s=123 frames=243252 heap=5280 tasks=10 fds=0 t=12300
+SOAK r=24418001 s=124 frames=243214 heap=5280 tasks=10 fds=0 t=12400
+SOAK r=24618001 s=125 frames=243174 heap=5280 tasks=10 fds=0 t=12501
+SOAK r=24814001 s=126 frames=243135 heap=5280 tasks=10 fds=0 t=12601
+SOAK r=24998001 s=127 frames=243098 heap=5280 tasks=10 fds=0 t=12700

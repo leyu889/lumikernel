@@ -1,0 +1,28 @@
+# 编译产物
+target/
+build/
+out/
+*.o
+*.rlib
+*.pyc
+__pycache__/
+
+# 虚拟机产物
+*.img
+*.iso
+*.vdi
+*.vbox
+*.log
+
+# 自带工具链（1.2 GB，自己装 rustup 即可）
+tools/rust/
+
+# 第三方二进制资产（见 tools/assets/README.txt 自行下载）
+tools/assets/busybox
+tools/assets/busybox136
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+.DS_Store

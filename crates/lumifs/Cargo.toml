@@ -1,0 +1,11 @@
+[package]
+name = "lumifs"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "lumifs"
+path = "src/lib.rs"
+
+# 零第三方依赖：文件系统逻辑只用字节数组 + 调用方注入的块设备
+[dependencies]

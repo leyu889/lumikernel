@@ -1,0 +1,11 @@
+[package]
+name = "kacpi"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "kacpi"
+path = "src/lib.rs"
+
+# 硬性约束：零第三方依赖（纯字节解析，不碰内存映射、不做 IO、不用堆）
+[dependencies]

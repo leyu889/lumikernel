@@ -1,0 +1,18 @@
+[package]
+name = "bench"
+version = "0.1.0"
+edition = "2021"
+
+# 独立的 workspace：这个 crate 用 `x86_64-unknown-none` 编译成裸 ELF，
+# 不与内核共享 profile/依赖。产物同时能在 LumiKernel 和 Linux 上跑。
+[workspace]
+
+[[bin]]
+name = "bench"
+path = "src/main.rs"
+
+[profile.release]
+panic = "abort"
+opt-level = 2
+lto = true
+codegen-units = 1

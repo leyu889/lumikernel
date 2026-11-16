@@ -1,0 +1,24 @@
+[package]
+name = "lumikernel"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "lumikernel"
+path = "src/main.rs"
+
+[dependencies]
+kmem = { path = "../crates/kmem" }
+kheap = { path = "../crates/kheap" }
+kpt = { path = "../crates/kpt" }
+kvm = { path = "../crates/kvm" }
+kfault = { path = "../crates/kfault" }
+kslab = { path = "../crates/kslab" }
+ksched = { path = "../crates/ksched" }
+kacpi = { path = "../crates/kacpi" }
+kfs = { path = "../crates/kfs" }
+kelf = { path = "../crates/kelf" }
+lumifs = { path = "../crates/lumifs" }
+kbcache = { path = "../crates/kbcache" }
+klinux = { path = "../crates/klinux" }
+kqa = { path = "../crates/kqa" }

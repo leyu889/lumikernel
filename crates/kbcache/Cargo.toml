@@ -1,0 +1,12 @@
+[package]
+name = "kbcache"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "kbcache"
+path = "src/lib.rs"
+
+# 只依赖文件系统的块设备接口，不引入其他 crate
+[dependencies]
+lumifs = { path = "../lumifs" }

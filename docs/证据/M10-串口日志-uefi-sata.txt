@@ -1,0 +1,176 @@
+[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[LumiEFI] UEFI loader up
+[LumiEFI] kernel blob found
+[LumiEFI] kernel copied to 0x100000
+[LumiEFI] kernel[0..8]=
+53b003f8ba66fcfa
+[LumiEFI] blob[0..8]=
+53b003f8ba66fcfa
+[LumiEFI] e820 entries=
+0000000000000013
+[LumiEFI] readback@0x9000=
+00ef000040000013
+[LumiEFI] dsize=
+0000000000000030
+ACSK
+==================================================
+  LumiKernel 1.1.0  (milestone M10)
+  UEFI + BIOS dual boot, own AHCI(SATA) driver, linux abi
+  busybox sh on real firmware + sata disk, 51 self-checks
+==================================================
+  凝光内核 · 宏内核 · x86_64 · ACPI/MADT · APIC/IOAPIC · ring3 · 系统调用 · 抢占
+[ OK ] idt:  vectors=48 idtr=0xffffffff801fea68 limit=4095
+[ OK ] gdt:  base=0xffffffff801fe5d8 limit=71 tr=0x38
+       8 项：内核代码/数据 + 用户代码/数据(DPL3) + TSS；rsp0=0xffffffff80147000 ist1=0xffffffff80143000
+[ OK ] ist:  df_ist=1 syscall_dpl=3 tr=0x38
+       #DF 挂在 IST1 上（栈坏了也能打出报告）；int 0x80 的门是 DPL=3，ring3 才进得来
+[ OK ] syscall: efer=0xd01 lstar=0xffffffff80100168 fmask=0x47700
+       `syscall` 指令通道就绪（EFER.SCE=1、LSTAR 指向入口、FMASK 清掉 IF/DF/TF）：musl 静态程序只认这条路，`int 0x80` 保留给自检
+[ OK ] e820:  entries=19 usable=975MiB boot=uefi
+       物理内存地图（串口完整版）:
+         0x0000000000 + 0x0000087000  type=1 可用
+         0x0000087000 + 0x0000001000  type=2 保留
+         0x0000088000 + 0x0000018000  type=1 可用
+         0x0000100000 + 0x000003f000  type=2 保留
+         0x000013f000 + 0x003ba9d000  type=1 可用
+         0x003bbdc000 + 0x0000020000  type=2 保留
+         0x003bbfc000 + 0x0001356000  type=1 可用
+         0x003cf52000 + 0x000004e000  type=2 保留
+         0x003cfa0000 + 0x0000042000  type=1 可用
+         0x003cfe2000 + 0x0000021000  type=2 保留
+         0x003d003000 + 0x0000024000  type=1 可用
+         0x003d027000 + 0x0001946000  type=2 保留
+         0x003e96d000 + 0x0000012000  type=3 ACPI 可回收
+         0x003e97f000 + 0x0000080000  type=4 ACPI NVS
+         0x003e9ff000 + 0x0000601000  type=2 保留
+         0x003f000000 + 0x00000c0000  type=1 可用
+         0x003f0c0000 + 0x0000061000  type=2 保留
+         0x003f121000 + 0x0000002000  type=4 ACPI NVS
+         0x003f123000 + 0x0000ecd000  type=2 保留
+[ OK ] frames:  total=1008MiB free=974MiB frames=249426 e820=975MiB
+[ OK ] reserve: kernel=0x100000..0x206000 first_free=0x206000
+[ OK ] heap:  base=0x206000 size=4096KiB used=0B audit=ok
+       LAPIC 已使能：mmio=0xffffa00000200000 id=0 目标核数=4 定时器 GSI=0
+[ OK ] acpi:  cpus=4 apic_id=0 timer_gsi=0
+       MADT @0x3fff0240：4 个 CPU，LAPIC @0xfee00000，ISA IRQ0 路由到 GSI 0，中断已切到 APIC
+[ OK ] ioapic-irq: gsi=2 ticks=20 pit_div=11931
+       PIT 的中断经 I/O APIC 重定向（GSI 2）后到达：8259A 已经被彻底绕开
+[ OK ] apic-timer: hz=100 init=9999768 ticks=20
+       每核自己的定时器跑起来了（初值 9999768 由 RTC 秒边界校准）—— 这才是多核时间片的基础
+       校准基准 = RTC 秒边界：APIC 定时器 9999768 counts/10ms，10ms = 35004955 个 TSC tick
+       校准那一秒里原 tick 源（PIT 经 I/O APIC）实际打了 101 次
+[ OK ] pic:  fully masked (0xff 0xff)
+[ OK ] high-half:  rip=0xffffffff8011a3a3
+[ OK ] paging:  cr0.pg=1 cr4.pae=1 cr3=0x147000
+[ OK ] paging-test: pml4=1 page pattern=0x4c756d694b65726e frames=back
+[ OK ] frames-stress: n=512 unique=1 returned=248399
+[ OK ] exception: de=caught bp=caught hits=2
+[ OK ] guard-page: addr=0xffffa00000005123 pf=p0 read+write caught frames=back
+[ OK ] slab:  objs=600 pages=123 order=shuffled audit=ok leak=0
+[ OK ] task:  self=task0 state=running quantum=1ticks
+       当前这段代码本身变成了 0 号任务，后面创建的线程与它同场竞争
+hello from ring3
+[ OK ] ring3:  exit=7 syscalls_from_cpl3=2 wrote=17B
+       用户程序在 CPL=3 跑完：int 0x80 进来两次，写出 17 字节，最后 exit(7)
+[ OK ] kthreads: 3 threads x 8000000 iters done, switches=17 preempted=14
+       三个内核线程都没有主动让出 CPU，能跑完说明是时钟中断把它们切开的
+[ OK ] preempt: preempted=15 switches=19 exited=4 ticked=1
+       时间片耗尽强制切换 15 次（三个线程都没主动让出）；每个任务都被记过 tick —— 抢占是真的
+       AP#1 apic=1 stack=0xffff80000061d000 online=true stage=8 wakeups=1
+       AP#2 apic=2 stack=0xffff800000621000 online=true stage=8 wakeups=1
+       AP#3 apic=3 stack=0xffff800000625000 online=true stage=8 wakeups=1
+[ OK ] smp: online=4/4 started=3 bsp_apic=0
+       已上线：cpu0=apic0 cpu1=apic1 cpu2=apic2 cpu3=apic3
+       cpu1 独立内核栈 top=0xffff80000061d000
+       cpu2 独立内核栈 top=0xffff800000621000
+       cpu3 独立内核栈 top=0xffff800000625000
+[ OK ] parallel: cores=4 min_work=42178824 bsp_work=372605952
+       200 ms 窗口内 4 个核同时执行：每核自己数循环次数，最少 42178824 次（BSP 372605952 次，含 rdtsc 开销）
+       静息态实测 APIC 定时器：89 Hz（配置 100 Hz；样本 18 tick / 700099190 TSC）
+[ OK ] smp-timer: cpus=4 all_ticking=1 ticks=[22..23]
+       4 个核各自被自己的 LAPIC 定时器打断（最少 22 次、最多 23 次）—— 每核独立时基
+[ OK ] ipi:  broadcast_vec=241 acked=3/3
+       向量 241 广播出去，3 个 AP 全部应答 —— 多核调度的 reschedule IPI 通道打通了
+       AHCI 控制器就位：ABAR=0x81404000，1 个端口在线（系统盘 131072 扇区，数据盘 0 扇区）
+       从盘（数据盘）：131072 扇区 = 65536 KiB
+[ OK ] disk: sectors=131072 blocks=65536KiB transport=ahci magic=0xef53
+       经 ahci 读到 131072 个 512B 扇区（65536 KiB），超级块魔数 0xef53 对上了
+       根目录内容：bin hello.txt
+[ OK ] ext2:  blocks=65536 root_entries=4 hello.txt=76B
+       ext2 挂载成功：根目录 4 项，第一个条目 "bin"；/hello.txt = 76 字节
+[ OK ] file:  open/read/close ok bytes=76
+       读到 76 字节，开头是：this line came from an e
+       close 之后打开数为 0（fd 表没有泄漏）
+hello from ext2 elf
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+[ OK ] elf:  segs=1 entry=0x400000 pages=1 mem=20KiB exit=9 calls=6 out_b=96
+       从磁盘上的 /bin/hello 装载：1 段 / 1 页，入口 0x400000，退出码 9，ring3 系统调用 6 次，输出 96 字节
+[ OK ] reject: missing=err badelf=err dir=err badfd=err
+       坏输入都被挡在门口：不存在的路径、假 ELF、打开目录、关无效 fd —— 内核没有因此崩
+[ OK ] addrspace: a=0x63a000 b=0x64b000 kern=0x147000 same_entry=0x400000
+       同一个 ELF 装成两个进程：页表 0x63a000 与 0x64b000 互不相同，也都不是内核的 0x147000；入口地址相同（0x400000）但物理页不同
+p1 ok
+p0 ok
+[ OK ] 2proc: exit=Some(9)/Some(9) switches=6 ticks=3/1 out="p1 ok.p0 ok."
+       两个进程各跑各的：都报 ok（同一个 0x600000 地址各加 300 次，互不干扰）；窗口内切换 6 次（它们真的在时间片上交叉）
+[ OK ] elf-guard: bad_entry=err bad_seg=err
+       指向内核地址的 ELF（入口越界 / 段越界）都被装载器拒绝 —— 用户程序不能给自己装一页内核
+[ OK ] fd-table: peer_fd=3 my_fd=3 same_file_bytes=12
+       两个任务各自打开同一个文件，**各自的 fd 都从 3 开始**；我在自己的表里读到 12 字节（偏移互不影响）
+[ OK ] pipe: blocked=2 frozen_ticks=1 write=4 read=4 word=0x70696e67 wait_code=0
+       读者与等待者都真的睡下了（ticks 停在 0 不涨），写入 4 字节后两者依次被唤醒；等待者拿到的退出码是 0
+       本次新增阻塞 1 次 / 唤醒 2 次；累计创建管道 1 个
+[ OK ] pipe-eof: order=1 epipe=1 eof=1 fds_closed=1
+       走 fd 层：写端全关 → 读端先读完缓冲再拿到 EOF（0）；读端全关 → 写端拿到 EPIPE；关完全部 fd 表回到空
+p1 ok
+p0 ok
+p1 ok
+[ OK ] reap: runs=3 pages=18 tables=21 frames 248178 -> 248178
+       跑完并回收 3 个进程：退掉 18 个数据页 + 21 个页表页，可用帧数精确回到起点（248178）—— 进程退出不再漏内存（累计回收 4 个）
+       PCI：扫了 1 条总线，发现 7 个设备，其中存储控制器 2、桥 0
+         00:00.0 8086:1237 桥 prog_if=0x00 BAR0=0x0 (MEM)
+         00:01.0 8086:7000 桥 prog_if=0x00 BAR0=0x0 (MEM)
+         00:01.1 8086:7111 存储控制器 prog_if=0x8a BAR0=0x0 (MEM)
+         00:02.0 80ee:beef 显示控制器 prog_if=0x00 BAR0=0x80000000 (MEM)
+         00:04.0 80ee:cafe 系统外设 prog_if=0x00 BAR0=0xc000 (IO)
+         00:07.0 8086:7113 桥 prog_if=0x00 BAR0=0x0 (MEM)
+         00:0d.0 8086:2829 存储控制器 prog_if=0x01 BAR0=0xc040 (IO)
+[ OK ] pci:  devs=7 buses=1 storage=2 bridges=0
+[ OK ] lumifs: blocks=65536 free=65520 entries=0 seq=0 formatted=1
+       数据盘挂载成功：65536 块（65536 KiB），空闲 65520，日志序号 0，块缓存命中/未命中=4/6，首次使用，已由内核格式化
+[ OK ] write: bytes=2500 readback=2500 match=1 ino=0
+       写 2500 字节（跨 3 块，受单次事务上限限制分成两次提交），读回逐字节一致；inode=0
+       重挂载后：日志重放=false（正常卸载后应为 false），缓存命中/未命中 48/24
+[ OK ] persist: remount=1 replayed=0 bytes=2500
+       卸载再挂载，文件内容逐字节一致；没有走日志重放（说明是正常落盘的，不是靠重放兜的）
+[ OK ] journal: armed_seq=4 replayed=1 blocks=2 content=1
+       造出掉电现场（日志已提交、数据未落地）→ 重挂载 → 重放 2 块 → 文件内容是新的那份。日志真的救了数据。
+[ OK ] cache: hits_gained=12 dirty_after_sync=0
+       同一块连读 5 次，缓存命中 12 次（真正省掉了 ATA 读）；sync 之后脏块数 0
+[ OK ] unlink: gone=1 blocks_restored=1
+       建一个文件写 1 KiB 再删掉：名字查不到了，空闲块数精确回到写之前
+[ OK ] vfs:  root=dir hello=76B dev_null=chr entries=4 open_dirs=0
+       一条路径进来，按挂载点分派：/ 是只读 ext2、/data 是可写 LumiFS、/dev 是合成设备；目录快照 4 项、句柄全部归还
+LUMI-M9
+bin
+hello.txt
+this line came from an ext2 file on disk
+second line: 0123456789 abcdefghij
+       reap(sh): pages=285 tables=7 ok=1
+[ OK ] busybox: sh/echo=1 ls=1 cat=1 exit=0 bytes=98
+       musl 静态 busybox 跑通：`sh -c 'echo; ls /; cat /hello.txt'` 三件事全部有输出（ELF 装载 + 初始栈 + 符号链接 + fork/exec/wait4）
+[ OK ] linux-abi: syscall_insns=70 from_cpl3=70
+       `syscall` 指令通道累计 70 次（其中来自 CPL3 的 70 次）：这些不是内核自检，是 busybox 自己发的
+[ OK ] reap: frames 248178 -> 248178 zombies=9 double_free=0
+       busybox 那一轮 fork/exec 用掉的帧全部归还（248178 -> 248178），没有重复释放
+[ OK ] isolate: user_faults=0 kernel_alive=1
+       这一轮没有用户态异常；即便有，也只会杀掉那个进程以 139 退出、内核继续跑
+抢占禁用深度 = 0（必须为 0）
+--------------------------------------------------
+M10 self-test 51/51 passed
+[LIVE] kernel healthy: 4 cpus, uefi+sata, busybox sh on linux abi
+M10 全部通过：4 个核在线；UEFI 固件 + 自有 AHCI(SATA) 驱动 + busybox sh 同时成立
+下一步 M11：故障注入 / fuzz / 30 天长跑 / 与 Linux 的性能对比，然后发布
+--------------------------------------------------
+累计 tick = 208（≈2080 ms） 切换 = 49 系统调用 = 23（来自 CPL3 23）
+非定时器中断 0 次（应为 0）；当前任务 user=false

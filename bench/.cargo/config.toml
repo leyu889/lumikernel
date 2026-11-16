@@ -1,0 +1,11 @@
+[build]
+target = "x86_64-unknown-none"
+
+[target.x86_64-unknown-none]
+# 静态、非 PIE、按 link.ld 装到 0x400000 —— 内核的 ELF 装载器只接受这种形态
+# （`kelf` 明确拒绝 ET_DYN 与 PT_INTERP）。
+rustflags = [
+    "-C", "link-arg=-Tlink.ld",
+    "-C", "relocation-model=static",
+    "-C", "target-feature=-soft-float",
+]

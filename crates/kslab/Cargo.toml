@@ -1,0 +1,10 @@
+[package]
+name = "kslab"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "kslab"
+path = "src/lib.rs"
+
+[dependencies]

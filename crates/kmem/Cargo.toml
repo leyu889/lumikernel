@@ -1,0 +1,8 @@
+[package]
+name = "kmem"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "kmem"
+path = "src/lib.rs"

@@ -1,0 +1,51 @@
+K
+==================================================
+  LumiKernel 0.4.0  (milestone M3)
+  monolithic kernel, ring3 + syscall + preempt
+  gdt/tss/ist + user task + kthreads
+==================================================
+  凝光内核 · 宏内核 · x86_64 · GDT/TSS/IST · ring3 · 系统调用 · 抢占调度
+[ OK ] idt:  vectors=48 idtr=0xffffffff801cec50 limit=4095
+[ OK ] gdt:  base=0xffffffff801cec08 limit=71 tr=0x38
+       8 项：内核代码/数据 + 用户代码/数据(DPL3) + TSS；rsp0=0xffffffff80119000 ist1=0xffffffff80115000
+[ OK ] ist:  df_ist=1 syscall_dpl=3 tr=0x38
+       #DF 挂在 IST1 上（栈坏了也能打出报告）；int 0x80 的门是 DPL=3，ring3 才进得来
+[ OK ] pic:  base=0x20..0x2f mask_m=0xfe mask_s=0xff
+[ OK ] pit:  hz=100 divisor=11932 ticks=20
+[ OK ] high-half:  rip=0xffffffff80104a1c
+[ OK ] paging:  cr0.pg=1 cr4.pae=1 cr3=0x119000
+[ OK ] e820:  entries=8 usable=511MiB
+       物理内存地图（串口完整版）:
+         0x0000000000 + 0x000009fc00  type=1 可用
+         0x000009fc00 + 0x0000000400  type=2 保留
+         0x00000f0000 + 0x0000010000  type=2 保留
+         0x0000100000 + 0x001fef0000  type=1 可用
+         0x001fff0000 + 0x0000010000  type=3 ACPI 可回收
+         0x00fec00000 + 0x0000001000  type=2 保留
+         0x00fee00000 + 0x0000001000  type=2 保留
+         0x00fffc0000 + 0x0000040000  type=2 保留
+[ OK ] frames:  total=511MiB free=510MiB frames=130592 e820=511MiB
+[ OK ] reserve: kernel=0x100000..0x1d0000 first_free=0x1d0000
+[ OK ] heap:  base=0x1d0000 size=4096KiB used=0B audit=ok
+[ OK ] paging-test: pml4=1 page pattern=0x4c756d694b65726e frames=back
+[ OK ] frames-stress: n=512 unique=1 returned=129568
+[ OK ] exception: de=caught bp=caught hits=2
+[ OK ] guard-page: addr=0xffffa00000005123 pf=p0 read+write caught frames=back
+[ OK ] slab:  objs=600 pages=123 order=shuffled audit=ok leak=0
+[ OK ] task:  self=task0 state=running quantum=1ticks
+       当前这段代码本身变成了 0 号任务，后面创建的线程与它同场竞争
+hello from ring3
+[ OK ] ring3:  exit=7 syscalls_from_cpl3=2 wrote=17B
+       用户程序在 CPL=3 跑完：int 0x80 进来两次，写出 17 字节，最后 exit(7)
+[ OK ] kthreads: 3 threads x 8000000 iters done, switches=10 preempted=7
+       三个内核线程都没有主动让出 CPU，能跑完说明是时钟中断把它们切开的
+[ OK ] preempt: preempted=8 switches=12 exited=4 all_ticked=1
+       时间片耗尽强制切换 8 次（三个线程都没主动让出）；每个任务都被记过 tick —— 抢占是真的
+--------------------------------------------------
+M3 self-test 20/20 passed
+[LIVE] kernel healthy: ring3 + syscall + preempt all working
+M3 全部通过：内核已经能跑用户程序，并且是抢占式的
+下一步 M4：VFS + ext2 挂载 + 设备驱动（PCIe/ATA/virtio）+ 文件描述符
+--------------------------------------------------
+累计 tick = 28（≈280 ms） 切换 = 12 系统调用 = 2（来自 CPL3 2）
+非定时器中断 0 次（应为 0）；当前任务 user=false

@@ -1,0 +1,33 @@
+name: ci
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Rust 与两个裸机目标
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-none, x86_64-unknown-uefi
+
+      # 所有"纯逻辑"的 crate 都能在宿主机上测（这是本项目的核心设计：
+      # 判定逻辑与硬件分离，所以 CI 不需要虚拟机就能跑几百个单测）
+      - name: 单元测试（宿主机）
+        run: cargo test --workspace --exclude lumikernel
+
+      - name: 编译内核（裸机目标）
+        run: cargo build -p lumikernel --target x86_64-unknown-none --release
+
+      - name: 编译 UEFI 装载器
+        run: cargo build --release --target x86_64-unknown-uefi
+        working-directory: boot/efi
+
+      # S6：unsafe 密度审计（超过阈值或缺少证明会返回非 0）
+      - name: unsafe 审计
+        run: python3 tools/unsafe-audit.py

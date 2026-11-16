@@ -1,0 +1,12 @@
+[package]
+name = "klinux"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "klinux"
+path = "src/lib.rs"
+
+# 硬性约束：零第三方依赖。这一层只描述 Linux 的 ABI 长什么样，
+# 不碰任何硬件，因此全部逻辑都能在宿主机上跑单测。
+[dependencies]

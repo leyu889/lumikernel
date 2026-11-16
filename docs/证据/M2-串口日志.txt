@@ -1,0 +1,43 @@
+K
+==================================================
+  LumiKernel 0.3.0  (milestone M2)
+  monolithic kernel, higher-half + direct map
+  idt + exceptions + pit + guard page + slab
+==================================================
+  凝光内核 · 宏内核 · x86_64 · 中断/异常/定时器/guard page/slab
+[ OK ] idt:  vectors=48 idtr=0xffffffff801a0080 limit=4095
+       IDT 已装载并用 sidt 回读校验；0..47 全 present，其余门保持 present=0
+[ OK ] pic:  base=0x20..0x2f mask_m=0xfe mask_s=0xff
+       8259A 已重映射，只放行 IRQ0；不重映射的话 IRQ0 会盖住 #DF
+[ OK ] pit:  hz=100 divisor=11932 ticks=20
+       定时器中断真的进来了（不是「配好了」就算）：等待窗口内收到 20 个 tick
+[ OK ] high-half:  rip=0xffffffff80102bd1
+[ OK ] paging:  cr0.pg=1 cr4.pae=1 cr3=0x10b000
+[ OK ] e820:  entries=8 usable=511MiB
+       物理内存地图（串口完整版）:
+         0x0000000000 + 0x000009fc00  type=1 可用
+         0x000009fc00 + 0x0000000400  type=2 保留
+         0x00000f0000 + 0x0000010000  type=2 保留
+         0x0000100000 + 0x001fef0000  type=1 可用
+         0x001fff0000 + 0x0000010000  type=3 ACPI 可回收
+         0x00fec00000 + 0x0000001000  type=2 保留
+         0x00fee00000 + 0x0000001000  type=2 保留
+         0x00fffc0000 + 0x0000040000  type=2 保留
+[ OK ] frames:  total=511MiB free=510MiB frames=130638 e820=511MiB
+[ OK ] reserve: kernel=0x100000..0x1a2000 first_free=0x1a2000
+[ OK ] heap:  base=0x1a2000 size=4096KiB used=0B audit=ok
+[ OK ] paging-test: pml4=1 page pattern=0x4c756d694b65726e frames=back
+[ OK ] frames-stress: n=512 unique=1 returned=129614
+[ OK ] exception: de=caught bp=caught hits=2
+       除零与断点都被精确接住并恢复执行——内核没有重启，这在内核里是硬指标
+[ OK ] guard-page: addr=0xffffa00000005123 pf=p0 read+write caught frames=back
+       相邻页故意不映射，读/写各踩一次，错误码分别是 P=0/W=0 与 P=0/W=1
+[ OK ] slab:  objs=600 pages=123 order=shuffled audit=ok leak=0
+       slab 持有 123 页（整页回收留到 M3：要先能证明页全空且无引用）
+--------------------------------------------------
+M2 self-test 14/14 passed
+[LIVE] kernel healthy, interrupts on, pit ticking
+M2 全部通过：内核从「错了就重启」变成「错了能说话」
+下一步 M3：TSS/IST + ring3 + 系统调用 + 进程/线程 + 抢占调度
+--------------------------------------------------
+累计 tick = 20（≈200 ms），非定时器中断 0 次（应为 0）

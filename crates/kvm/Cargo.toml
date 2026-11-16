@@ -1,0 +1,10 @@
+[package]
+name = "kvm"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "kvm"
+path = "src/lib.rs"
+
+[dependencies]

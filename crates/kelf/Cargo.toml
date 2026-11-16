@@ -1,0 +1,14 @@
+[package]
+name = "kelf"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "kelf"
+path = "src/lib.rs"
+
+# 硬性约束：零第三方依赖（纯字节解析，不碰页表、不做 IO、不用堆）
+[dependencies]
+
+[dev-dependencies]
+kqa = { path = "../kqa" }

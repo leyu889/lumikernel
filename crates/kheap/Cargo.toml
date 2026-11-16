@@ -1,0 +1,10 @@
+[package]
+name = "kheap"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "kheap"
+path = "src/lib.rs"
+
+[dependencies]

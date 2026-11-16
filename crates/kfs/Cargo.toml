@@ -1,0 +1,14 @@
+[package]
+name = "kfs"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "kfs"
+path = "src/lib.rs"
+
+# 硬性约束：零第三方依赖（no_std / 无堆，只用调用方提供的缓冲区）
+[dependencies]
+
+[dev-dependencies]
+kqa = { path = "../kqa" }

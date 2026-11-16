@@ -1,0 +1,11 @@
+[package]
+name = "kqa"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+name = "kqa"
+path = "src/lib.rs"
+
+# 零依赖：这一层必须能在宿主机上跑，也必须能被内核信任。
+[dependencies]
