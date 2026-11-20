@@ -1,13 +1,32 @@
 # LumiKernel · 凝光内核
 
-> **English** — A from-scratch x86_64 monolithic kernel in Rust. Own boot chain
+**从引导扇区开始、一行 Linux 代码都不继承的 x86_64 宏内核。**
+
+61 项自检全绿 · 2.5 万次系统调用 fuzz 零 panic · 驱动失联内核不崩 · 可启动 ISO 开箱即跑
+
+[![self-checks](https://img.shields.io/badge/self--checks-61%2F61-brightgreen)](docs/%E8%AF%81%E6%8D%AE/M12-%E4%B8%B2%E5%8F%A3%E6%97%A5%E5%BF%97.txt)
+[![Rust](https://img.shields.io/badge/Rust-no__std-orange?logo=rust&logoColor=white)](Cargo.toml)
+[![target](https://img.shields.io/badge/target-x86__64__unknown__none-blue)](.cargo/config.toml)
+[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![release](https://img.shields.io/github/v/release/leyu889/lumikernel?color=blue)](https://github.com/leyu889/lumikernel/releases/latest)
+[![last commit](https://img.shields.io/github/last-commit/leyu889/lumikernel)](https://github.com/leyu889/lumikernel/commits/main)
+
+![M12 自检 61/61](docs/%E8%AF%81%E6%8D%AE/M12-%E5%B1%8F%E5%B9%95.png)
+
+> **先试，再读。** [下载可启动 ISO](https://github.com/leyu889/lumikernel/releases/latest)，
+> 挂进 VirtualBox 或 QEMU，大约 30 秒后屏幕上就是上面这张图——不需要编译，不需要装工具链。
+>
+> ```bash
+> qemu-system-x86_64 -cdrom LumiKernel-1.3-M12.iso -m 512 -serial stdio
+> ```
+
+> **English** — A from-scratch x86_64 monolithic kernel in Rust: own boot chain
 > (BIOS + UEFI), own AHCI/SATA driver, own journaled filesystem, own FAT16/32 reader,
 > and a Linux syscall subset that runs static musl binaries (`busybox sh`).
 > **61 kernel self-checks · 300+ host unit tests · fault injection, fuzz, soak,
 > driver-failure isolation, W^X audit** — all reproducible from one command.
 >
-> **中文** — 从引导扇区开始、一行 Linux 代码都不继承的 x86_64 宏内核。
-> 驱动、文件系统、协议栈全在内核态；目标是**在受支持范围内比 Linux 更不容易崩，并且崩了能定位**。
+> **定位** — 驱动、文件系统、协议栈全在内核态；目标是**在受支持范围内比 Linux 更不容易崩，并且崩了能定位**。
 > 文档与代码注释均为中文，注释解释*为什么*这样写，而不是复述代码在做什么。
 
 > 完整取舍见 [docs/00-定位与稳定性哲学.md](docs/00-定位与稳定性哲学.md)，
