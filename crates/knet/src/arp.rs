@@ -11,8 +11,12 @@ use crate::{eth::Mac, NetError, NetResult};
 
 /// ARP 硬件类型：以太网。
 const HW_ETHERNET: u16 = 1;
-/// ARP 协议类型：IPv4。
-const PR_IPV4: u32 = 0x0800;
+/// ARP 协议类型：IPv4。**这是 16 位字段**。
+const PR_IPV4: u16 = 0x0800;
+/// 硬件地址长度（以太网 MAC 6 字节）。
+const HLEN_ETHERNET: u8 = 6;
+/// 协议地址长度（IPv4 4 字节）。
+const PLEN_IPV4: u8 = 4;
 /// 操作码。
 pub const OP_REQUEST: u16 = 1;
 pub const OP_REPLY: u16 = 2;
@@ -71,10 +75,19 @@ pub fn parse(buf: &[u8]) -> NetResult<(u16, [u8; 4], Mac, [u8; 4])> {
     if buf.len() < ARP_LEN {
         return Err(NetError::TooShort);
     }
+    // ARP 头布局（RFC 826）：htype(2) ptype(2) hlen(1) plen(1) op(2) …
+    //
+    // 之前把 ptype 当成 4 字节读（[buf[2]..buf[6]]），把 hlen/plen 一起
+    // 吞了进去，于是 pr 变成 0x08000604，永远不等于 0x0800 ——
+    // **收到的每一个 ARP 回复都被判成坏包**。组包那边犯的是同一个错，
+    // 所以"自己组包再自己解包"的单测一直是绿的。这类错误只有真跟设备
+    // 对话才会暴露。
     let hw = u16::from_be_bytes([buf[0], buf[1]]);
-    let pr = u32::from_be_bytes([buf[2], buf[3], buf[4], buf[5]]);
+    let pr = u16::from_be_bytes([buf[2], buf[3]]);
+    let hlen = buf[4];
+    let plen = buf[5];
     let op = u16::from_be_bytes([buf[6], buf[7]]);
-    if hw != HW_ETHERNET || pr != PR_IPV4 {
+    if hw != HW_ETHERNET || pr != PR_IPV4 || hlen != HLEN_ETHERNET || plen != PLEN_IPV4 {
         return Err(NetError::BadField);
     }
     let sha = Mac([buf[8], buf[9], buf[10], buf[11], buf[12], buf[13]]);
@@ -96,7 +109,9 @@ pub fn build(
         return Err(NetError::NoSpace);
     }
     out[0..2].copy_from_slice(&HW_ETHERNET.to_be_bytes());
-    out[2..6].copy_from_slice(&PR_IPV4.to_be_bytes());
+    out[2..4].copy_from_slice(&PR_IPV4.to_be_bytes());
+    out[4] = HLEN_ETHERNET;
+    out[5] = PLEN_IPV4;
     out[6..8].copy_from_slice(&op.to_be_bytes());
     out[8..14].copy_from_slice(&sender_mac.0);
     out[14..18].copy_from_slice(&sender_ip);
@@ -131,6 +146,39 @@ mod tests {
         assert_eq!(spa, [10, 0, 2, 15]);
         assert_eq!(sha, Mac([1, 2, 3, 4, 5, 6]));
         assert_eq!(tpa, [10, 0, 2, 2]);
+    }
+
+    /// 按 RFC 826 的字节布局逐位断言。
+    ///
+    /// 只做 roundtrip 是不够的：组包与解包用同一个错误偏移，
+    /// 两边一起错，测试照样过（这个 bug 就是这样活到真机上的）。
+    #[test]
+    fn wire_bytes_match_rfc826() {
+        let mut buf = [0u8; 64];
+        let n = build(
+            OP_REPLY,
+            Mac([0x52, 0x54, 0x00, 0x12, 0x35, 0x00]),
+            [10, 0, 2, 2],
+            Mac([0x52, 0x54, 0x00, 0x12, 0x34, 0x56]),
+            [10, 0, 2, 15],
+            &mut buf,
+        )
+        .unwrap();
+        assert_eq!(n, ARP_LEN);
+        assert_eq!(&buf[0..2], &[0x00, 0x01], "htype 必须是 1（以太网）");
+        assert_eq!(&buf[2..4], &[0x08, 0x00], "ptype 必须是 0x0800（2 字节）");
+        assert_eq!(buf[4], 6, "hlen 必须是 6");
+        assert_eq!(buf[5], 4, "plen 必须是 4");
+        assert_eq!(&buf[6..8], &[0x00, 0x02], "op 必须是 REPLY");
+        assert_eq!(&buf[8..14], &[0x52, 0x54, 0x00, 0x12, 0x35, 0x00]);
+        assert_eq!(&buf[14..18], &[10, 0, 2, 2]);
+        assert_eq!(&buf[18..24], &[0x52, 0x54, 0x00, 0x12, 0x34, 0x56]);
+        assert_eq!(&buf[24..28], &[10, 0, 2, 15]);
+        // 解包必须能吃下带以太网填充的长包（真实回复是 64 字节）
+        let (op, spa, _sha, tpa) = parse(&buf[..64]).unwrap();
+        assert_eq!(op, OP_REPLY);
+        assert_eq!(spa, [10, 0, 2, 2]);
+        assert_eq!(tpa, [10, 0, 2, 15]);
     }
 
     #[test]

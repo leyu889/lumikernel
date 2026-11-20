@@ -2,15 +2,15 @@
 
 **An x86_64 monolithic kernel written from scratch in Rust — not a single line inherited from Linux.**
 
-61 self-checks green · 25,000 random syscalls with zero panics · drives survive driver failure · bootable ISO, no toolchain needed
+62 self-checks green · 25,000 random syscalls with zero panics · drives survive driver failure · bootable ISO, no toolchain needed
 
-[![self-checks](https://img.shields.io/badge/self--checks-61%2F61-brightgreen)](docs/%E8%AF%81%E6%8D%AE/M12-%E4%B8%B2%E5%8F%A3%E6%97%A5%E5%BF%97.txt)
+[![self-checks](https://img.shields.io/badge/self--checks-62%2F62-brightgreen)](docs/%E8%AF%81%E6%8D%AE/M12-%E4%B8%B2%E5%8F%A3%E6%97%A5%E5%BF%97.txt)
 [![Rust](https://img.shields.io/badge/Rust-no__std-orange?logo=rust&logoColor=white)](Cargo.toml)
 [![target](https://img.shields.io/badge/target-x86__64__unknown__none-blue)](.cargo/config.toml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![release](https://img.shields.io/github/v/release/leyu889/lumikernel?color=blue)](https://github.com/leyu889/lumikernel/releases/latest)
 
-![M12 self-check 61/61](docs/%E8%AF%81%E6%8D%AE/M12-%E5%B1%8F%E5%B9%95.png)
+![M12 self-check 62/62](docs/%E8%AF%81%E6%8D%AE/M12-%E5%B1%8F%E5%B9%95.png)
 
 > **Try it before reading.** [Download the bootable ISO](https://github.com/leyu889/lumikernel/releases/latest)
 > (5.5 MB), boot it in QEMU or VirtualBox, and about 30 seconds later your screen looks
@@ -87,7 +87,7 @@ because counting extras made a child process' exit free pages the parent was sti
 
 | Item | State |
 |---|---|
-| TCP/IP end-to-end | Stack and drivers are complete, 13 host unit tests pass — but **ping fails**. VirtualBox's virtio-net backend stops consuming the avail ring. Not claiming network support until it works. |
+| TCP/IP beyond ICMP | ARP and ICMP are **verified end-to-end** (`ping 10.0.2.2` under VBox NAT returns 4 bytes, rx=2/tx=2/drops=0). UDP/TCP have a socket layer and host unit tests, but no end-to-end traffic yet — there is no TCP server reachable behind NAT to test against. On a machine with no NIC this check is skipped and the total reads 61. |
 | Real SMP scheduling | 4 APs come online; per-CPU state, multi-queue scheduler and cross-core locks exist. Parallel scheduling is **disabled**: 8 cores deadlock silently in the execve path (root cause: one global TSS; needs per-CPU TSS + GDT). |
 | ext2 writes | **Not implemented.** Writable storage is LumiFS (journaled, crash-recoverable, its own self-checks). Rewriting the boot disk is a risk with no upside here. |
 | SMEP | Code is in place, but VirtualBox does not pass `CPUID.07H:EBX[7]`, so `cap=0`. Works on bare metal. |

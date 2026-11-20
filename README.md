@@ -4,16 +4,16 @@
 
 **从引导扇区开始、一行 Linux 代码都不继承的 x86_64 宏内核。**
 
-61 项自检全绿 · 2.5 万次系统调用 fuzz 零 panic · 驱动失联内核不崩 · 可启动 ISO 开箱即跑
+62 项自检全绿 · 2.5 万次系统调用 fuzz 零 panic · 驱动失联内核不崩 · 可启动 ISO 开箱即跑
 
-[![self-checks](https://img.shields.io/badge/self--checks-61%2F61-brightgreen)](docs/%E8%AF%81%E6%8D%AE/M12-%E4%B8%B2%E5%8F%A3%E6%97%A5%E5%BF%97.txt)
+[![self-checks](https://img.shields.io/badge/self--checks-62%2F62-brightgreen)](docs/%E8%AF%81%E6%8D%AE/M12-%E4%B8%B2%E5%8F%A3%E6%97%A5%E5%BF%97.txt)
 [![Rust](https://img.shields.io/badge/Rust-no__std-orange?logo=rust&logoColor=white)](Cargo.toml)
 [![target](https://img.shields.io/badge/target-x86__64__unknown__none-blue)](.cargo/config.toml)
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![release](https://img.shields.io/github/v/release/leyu889/lumikernel?color=blue)](https://github.com/leyu889/lumikernel/releases/latest)
 [![last commit](https://img.shields.io/github/last-commit/leyu889/lumikernel)](https://github.com/leyu889/lumikernel/commits/main)
 
-![M12 自检 61/61](docs/%E8%AF%81%E6%8D%AE/M12-%E5%B1%8F%E5%B9%95.png)
+![M12 自检 62/62](docs/%E8%AF%81%E6%8D%AE/M12-%E5%B1%8F%E5%B9%95.png)
 
 > **先试，再读。** [下载可启动 ISO](https://github.com/leyu889/lumikernel/releases/latest)，
 > 挂进 VirtualBox 或 QEMU，大约 30 秒后屏幕上就是上面这张图——不需要编译，不需要装工具链。
@@ -25,7 +25,7 @@
 > **English** — A from-scratch x86_64 monolithic kernel in Rust: own boot chain
 > (BIOS + UEFI), own AHCI/SATA driver, own journaled filesystem, own FAT16/32 reader,
 > and a Linux syscall subset that runs static musl binaries (`busybox sh`).
-> **61 kernel self-checks · 300+ host unit tests · fault injection, fuzz, soak,
+> **62 kernel self-checks · 300+ host unit tests · fault injection, fuzz, soak,
 > driver-failure isolation, W^X audit** — all reproducible from one command.
 >
 > **定位** — 驱动、文件系统、协议栈全在内核态；目标是**在受支持范围内比 Linux 更不容易崩，并且崩了能定位**。
@@ -54,7 +54,7 @@
 | **M9 Linux 兼容层**：`syscall` 指令通道、Linux 系统调用子集、musl 静态程序、VFS、`fork/execve/wait4` | ✅ **51/51**（2026-11-12，连跑 3 次；`busybox sh` 跑通 `echo`/`ls`/`cat`） |
 | **M10 真机**：UEFI 装载器（PE32+）、GPT+ESP 启动盘、自有 **AHCI(SATA)** 驱动、同盘三分区 | ✅ **51/51**（2026-11-16，UEFI+SATA 单盘连跑 3 次） |
 | **M11 稳定工程**：故障注入（帧/堆/磁盘）、系统调用与镜像 fuzz、长跑回归、跨系统微基准、S1–S7 判定、栈金丝雀 | ✅ **58/58**（2026-11-16，UEFI+SATA 连跑 3 次；S1–S7 全绿） |
-| **M12 性能与安全**：fork COW、mmap 懒分配、wait 立即唤醒、网络协议栈（knet）、virtio-net/e1000 驱动、FAT16/32、**驱动故障隔离**、SMEP/W^X | ✅ **61/61**（2026-11-20） |
+| **M12 性能与安全**：fork COW、mmap 懒分配、wait 立即唤醒、网络协议栈（knet）、virtio-net/e1000 驱动、FAT16/32、**驱动故障隔离**、SMEP/W^X | ✅ **62/62**（2026-11-20） |
 | crates 单测（14 个包，含 `klinux`/`kqa`/`lumifs`/`kbcache`） | ✅ **281 个全绿** |
 
 证据：`docs/证据/M0~M11-串口日志.txt` + 屏幕截图 + 崩溃演练（`docs/05-故障演练.md`）。
@@ -65,7 +65,7 @@
 [ OK ] driver:  降级→拒绝→恢复 ok，拒绝 1 次，恢复后内容一致
 [ OK ] security: SMEP=0（cap=0）W^X 违规=0（审计 1540 页）
 [ OK ] fat:    挂载成功，根目录 1 项，文件内容一致
-M12 self-test 61/61 passed
+M12 self-test 62/62 passed
 ```
 
 | 做了什么 | 数据 |
@@ -76,6 +76,7 @@ M12 self-test 61/61 passed
 | **网络协议栈**（新 crate `knet`） | 以太网 / ARP / IPv4 / ICMP / UDP / TCP，**13 个宿主单测**；`knet::checksum` 对得上 RFC 1071 的样例 |
 | **virtio-net 驱动** | legacy 0.9.5 队列（desc/avail/used），QEMU/KVM/VBox 通用；e1000 作为真机兜底 |
 | **FAT16/32 只读驱动**（新 crate `kfat`） | 真实 U 盘格式；长文件名、变长簇链、**带防环上限**；5 个宿主单测 |
+| **virtio-net + 协议栈** | 队列按设备上报长度动态布局（VBox 给 1024 项）、10 字节 `virtio_net_hdr`、ARP 字段宽度修正 → **ping 网关成功** |
 | **驱动故障隔离** | 注入"控制器失联"→ 立刻 `Err`（不等超时）+ 状态 `Down` + 后续调用被健康门快速拒绝 + `recover` 后同一块盘内容逐字节一致 |
 | **安全** | SMEP 代码就位（VBox 不透传 CPUID，真机生效）；**W^X 审计 1540 页、0 违规**；SMAP 能力已探测，等所有用户访问统一走 `uaccess` 后再开 |
 
@@ -97,7 +98,7 @@ M12 self-test 61/61 passed
 | 项 | 现状 |
 |---|---|
 | SMP 多核调度 | 4/8 个 AP 全部上线、per-CPU `CUR`/调度器多队列/跨核锁已就位；**真并行调度未启用**——8 核并发在 execve 密集路径静默卡死，根因是全局 TSS（多核要 per-CPU TSS+GDT）。AP 目前是空转 idle，`parallel` 自检证明它们真的在并行执行 |
-| 网络栈实机验证 | 协议栈与驱动代码完整、宿主单测全绿；VBox 的 virtio 环兼容性还没跑通（设备不消费 avail），**ping 未过**。这一项没有"过关"之前不写成支持 |
+| 网络栈 | **ping 通了**（`10.0.2.2` 回 4 字节，ARP 解析成功，rx=2/tx=2/drops=0）。只验证到 ICMP 与 ARP；UDP/TCP 有套接字层但没有端到端实测（VBox NAT 下没有可连的 TCP 服务）。无网卡环境会跳过这一项，此时总数显示 61 项 |
 | ext2 写入 | **没做**。可写能力由 LumiFS（日志式、带崩溃恢复）覆盖；ext2 保持只读是设计选择——改系统盘的风险远大于收益。FAT16/32 也是只读 |
 | SMEP | 代码就位但 VBox 不透传 `CPUID.07H:EBX[7]`，`cap=0`；真机上应能开启 |
 | SMAP | 只探测不启用：内核里还有几处直接访问用户内存的历史路径，没全部收进 `uaccess` 之前开它是负收益 |
@@ -112,7 +113,7 @@ M12 self-test 61/61 passed
 [ OK ] soak: 64 采样 × 500 轮，帧斜率 0‰ 堆斜率 0‰ 首尾差 0
 [ OK ] perf: frame=41ns heap=63ns read=19MiB/s lumifs=12.5ms exec=0.35ms pipe1k=184ns
 [ OK ] stack: 高水位 65 KiB / 256 KiB (25%), 金丝雀完好
-M12 self-test 61/61 passed
+M12 self-test 62/62 passed
 ```
 
 这一版**没有加任何新功能**，只做一件事：把 `docs/00-定位与稳定性哲学.md` 里的

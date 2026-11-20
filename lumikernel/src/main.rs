@@ -185,9 +185,9 @@ pub extern "C" fn kmain(e820_addr: u32) -> ! {
 
     kprintln!();
     kprintln!("==================================================");
-    kprintln!("  LumiKernel 1.3.0  (milestone M12)");
+    kprintln!("  LumiKernel 1.3.1  (milestone M12)");
     kprintln!("  UEFI + BIOS dual boot, own AHCI(SATA) driver, linux abi");
-    kprintln!("  COW + lazy mmap + net + FAT + driver isolation, 61 self-checks");
+    kprintln!("  COW + lazy mmap + net(ping ok) + FAT + driver isolation, 62 self-checks");
     kprintln!("==================================================");
     kserialln!("  凝光内核 · 宏内核 · x86_64 · ACPI/MADT · APIC/IOAPIC · ring3 · 系统调用 · 抢占");
 
@@ -3007,7 +3007,7 @@ pub extern "C" fn kmain(e820_addr: u32) -> ! {
             arch::smp::count()
         );
         kserialln!(
-            "发布版本 v1.3.0（M12）。未完成项见 README 的「诚实边界」：网络栈实机 ping 未过、\
+            "发布版本 v1.3.1（M12）。未完成项见 README 的「诚实边界」：\
              SMP 真并行未启用、ext2 只读"
         );
     } else {
