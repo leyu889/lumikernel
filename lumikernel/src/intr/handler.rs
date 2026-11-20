@@ -64,6 +64,22 @@ pub extern "C" fn isr_dispatch(frame: *mut InterruptFrame) {
                 // 全局时间只由 BSP 推进：多个核各加一次会让"1 秒"变成 1/N 秒。
                 if crate::arch::smp::is_bsp() {
                     timer::on_tick();
+                    // 轮询网卡 RX：不接中断向量的代价就是 tick 里顺手查一次。
+                    // **必须限频**：poll 里有 MMIO 读（VM exit 级别的开销），
+                    // 每 tick 一次会把整个系统的 syscall 摊薄 200 倍
+                    // （实测 getpid 426 → 145K 周期）。10 个 tick（100ms）
+                    // 轮询一次，ping 的 200ms 等待窗口内仍有 2 次机会。
+                    static NET_POLL_EVERY: core::sync::atomic::AtomicU32 =
+                        core::sync::atomic::AtomicU32::new(0);
+                    let n = NET_POLL_EVERY.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+                    if n % 10 == 0 {
+                        crate::net::poll_rx();
+                    }
+                    // task::on_tick 只能在 BSP 跑：AP 回退到"空转 idle"后
+                    // 没有自己的任务，CUR[AP]=0 会把 BSP 主任务错当成
+                    // "AP 正在跑的任务"去切——任务状态被两核并发改乱，
+                    // 表现是自检在 execve 附近静默卡死（实测）。
+                    // AP 跑真调度循环后这里按核打开。
                     crate::task::on_tick(); // 可能在这里切走，不返回本轮
                 }
                 // 每核自己的 tick 计数：这是"这个核真的在跑"的直接证据
@@ -84,14 +100,23 @@ pub extern "C" fn isr_dispatch(frame: *mut InterruptFrame) {
         return;
     }
 
-    // 2) 断点：单字节 int3，推进 rip 后可以安全返回（内核调试原语）
+    // 2) 用户页缺失/写保护：两类**可以修好**的页错误。
+    //
+    // 顺序很关键：必须在"杀进程"之前、在 crash 之前。
+    // 这里修好的错误对上层完全透明——用户程序只看到自己的写入成功了，
+    // 不知道内核刚替它复制了一页。
+    if v == kfault::VEC_PF && crate::mm::fault::handle(true, f.error) {
+        return;
+    }
+
+    // 3) 断点：单字节 int3，推进 rip 后可以安全返回（内核调试原语）
     if v == kfault::VEC_BP {
         f.rip = f.rip.wrapping_add(1);
         kprintln!("[ .. ] 断点命中（已被跳过） rip={:#x}", f.rip.wrapping_sub(1));
         return;
     }
 
-    // 3) 来自 ring3 的异常：**杀掉这个进程**，内核继续跑。
+    // 4) 来自 ring3 的异常：**杀掉这个进程**，内核继续跑。
     //
     // 这一条是 M9 的稳定性底线：跑别人的程序时，用户态空指针/越界是
     // 用户程序自己的 bug，不能把整个内核带走。Linux 的做法是投递 SIGSEGV；
@@ -121,7 +146,7 @@ pub extern "C" fn isr_dispatch(frame: *mut InterruptFrame) {
         crate::task::exit_current(139);
     }
 
-    // 4) 内核自己的异常：现场转储后停机
+    // 5) 内核自己的异常：现场转储后停机
     crash(f);
 }
 

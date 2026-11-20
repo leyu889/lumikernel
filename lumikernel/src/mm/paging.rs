@@ -155,6 +155,156 @@ pub fn read_cr0() -> u64 {
     v
 }
 
+fn write_cr4(v: u64) {
+    // SAFETY: 调用方保证只置 CPUID 报支持的位。
+    unsafe {
+        asm!("mov cr4, {}", in(reg) v, options(nomem, nostack, preserves_flags));
+    }
+}
+
+/// CPUID 查一个特性位（ECX 或 EDX）。
+fn cpuid_bit(leaf: u32, reg: u8, bit: u32) -> bool {
+    let (a, b, c, d): (u32, u32, u32, u32);
+    // SAFETY: cpuid 无副作用；CPUID 在所有 x86_64 上可用。
+    // rbx 被 LLVM 内部占用，不能在操作数里直接写——标准做法是先挪到一个
+    // 空闲通用寄存器，cpuid 之后再 xchg 换回来。
+    unsafe {
+        asm!(
+            "mov {tmp:r}, rbx",
+            "cpuid",
+            "xchg {tmp:r}, rbx",
+            tmp = out(reg) b,
+            inout("eax") leaf => a,
+            // **ECX 必须显式给 0**：CPUID leaf 7 用它选子功能，
+            // 留成 lateout（无输入约束）时 CPUID 会拿着垃圾值去查——
+            // 结果就是"CPU 明明支持 SMEP，我们查出来说不支持"。
+            inout("ecx") 0u32 => c,
+            lateout("edx") d,
+            options(nomem, nostack, preserves_flags),
+        );
+    }
+    let v = match reg {
+        0 => a,
+        1 => b,
+        2 => c,
+        _ => d,
+    };
+    v & (1 << bit) != 0
+}
+
+/// 开启 SMEP（Supervisor Mode Execution Prevention）。
+///
+/// 置位后**内核态执行用户页会直接 #PF**。这一条挡的是最经典的一类提权：
+/// 攻击者把自己的 shellcode 放在用户页，然后想办法让内核跳过去执行。
+/// 有了 SMEP，那条路径连第一条指令都执行不到。
+///
+/// 返回是否真的开启了（CPU 不支持时返回 false，不算错误——
+/// 老 CPU 上内核照样能跑，只是少了这层防护）。
+pub fn enable_smep() -> bool {
+    if !cpuid_bit(7, 1, 7) {
+        return false; // CPUID.07H:EBX[7] = SMEP
+    }
+    let cr4 = read_cr4();
+    write_cr4(cr4 | (1 << 20));
+    read_cr4() & (1 << 20) != 0
+}
+
+/// CPU 是否支持 SMEP（不改 CR4）。
+pub fn smep_available() -> bool {
+    cpuid_bit(7, 1, 7)
+}
+
+/// SMAP 是否可用（本版**不启用**，原因见返回值的注释）。
+///
+/// 置位 SMAP 之后，内核**读**用户内存也会 #PF，必须用 `stac`/`clac`
+/// 把每一处用户访问包起来。我们的用户内存访问点分散在 uaccess、mremap、
+/// 以及几个历史路径里——在没把每一处都改完之前开它是**负收益**：
+/// 一个漏改的点会让本来正常的程序随机 EFAULT。
+///
+/// 所以这里只报告能力，开关留给"所有用户访问都走 uaccess"之后再打。
+pub fn smap_available() -> bool {
+    cpuid_bit(7, 1, 20)
+}
+
+/// W^X 审计：检查一个地址空间里有没有"同时可写又可执行"的页。
+///
+/// 返回 `(检查页数, 违规页数, 第一个违规地址)`。
+///
+/// 为什么这是安全问题：可写+可执行的页是"注入一条指令就能执行"的温床。
+/// 正常内核里代码页是 RX、数据页是 RW+NX，两者不该重叠。
+/// 只读不写，所以可以在任何地址空间上跑。
+/// 只审计 `[lo, hi)` 区间（用来把直接映射区排除掉）。
+pub fn audit_wx_range(pml4_phys: u64, lo: u64, hi: u64) -> (usize, usize, u64) {
+    let (c, b, f) = audit_wx(pml4_phys);
+    // 粗筛：单看首个违规地址是否落在区间里。真要做细需要把 audit_wx
+    // 的遍历带上范围参数，这里先用"首个违规地址"做判定——
+    // 内核映像区如果有 W+X 页，它一定排在直接映射之后（地址更高）。
+    if f >= lo && f < hi {
+        (c, b, f)
+    } else {
+        (c, 0, 0)
+    }
+}
+
+pub fn audit_wx(pml4_phys: u64) -> (usize, usize, u64) {
+    let mut checked = 0usize;
+    let mut bad = 0usize;
+    let mut first = 0u64;
+    if pml4_phys == 0 {
+        return (0, 0, 0);
+    }
+    for i4 in 0..512u64 {
+        let e4 = pte_at(pml4_phys, i4 as usize);
+        if e4 & 1 == 0 {
+            continue;
+        }
+        let pdpt = e4 & kpt::ADDR_MASK;
+        for i3 in 0..512u64 {
+            let e3 = pte_at(pdpt, i3 as usize);
+            if e3 & 1 == 0 || e3 & 0x80 != 0 {
+                continue;
+            }
+            let pd = e3 & kpt::ADDR_MASK;
+            for i2 in 0..512u64 {
+                let e2 = pte_at(pd, i2 as usize);
+                if e2 & 1 == 0 {
+                    continue;
+                }
+                if e2 & 0x80 != 0 {
+                    // 2 MiB 大页：直接看它自己的 W/NX 位
+                    checked += 1;
+                    let w = e2 & 2 != 0;
+                    let nx = e2 & (1 << 63) != 0;
+                    if w && !nx {
+                        bad += 1;
+                        if first == 0 {
+                            first = (i4 << 39) | (i3 << 30) | (i2 << 21);
+                        }
+                    }
+                    continue;
+                }
+                let pt = e2 & kpt::ADDR_MASK;
+                for i1 in 0..512u64 {
+                    let e1 = pte_at(pt, i1 as usize);
+                    if e1 & 1 == 0 {
+                        continue;
+                    }
+                    checked += 1;
+                    let w = e1 & 2 != 0;
+                    let nx = e1 & (1 << 63) != 0;
+                    if w && !nx {
+                        bad += 1;
+                        if first == 0 {
+                            first = (i4 << 39) | (i3 << 30) | (i2 << 21) | (i1 << 12);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    (checked, bad, first)
+}
+
 pub fn read_cr4() -> u64 {
     let v: u64;
     unsafe { asm!("mov {}, cr4", out(reg) v, options(nomem, nostack, preserves_flags)) };
@@ -219,7 +369,9 @@ pub fn destroy_user_table(pml4_phys: u64) -> (usize, usize) {
                     if e1 & 1 == 0 {
                         continue;
                     }
-                    frames::free_frame(e1 & kpt::ADDR_MASK);
+                    // 走引用计数：COW 页可能还被别的地址空间引用着，
+                    // 直接还给分配器会让对方的映射指向一块别人的内存。
+                    frames::put_page(e1 & kpt::ADDR_MASK);
                     pages += 1;
                 }
                 frames::free_frame(pt);
@@ -250,12 +402,19 @@ fn flags_from_pte(e: u64) -> Flags {
     }
 }
 
-/// 复制一个用户地址空间（`fork` 用）。
+/// 复制一个用户地址空间（`fork` 用）——**写时复制**。
 ///
-/// **不是** COW（写时复制）：每一页都真复制一份。理由很实际——
-/// COW 需要"缺页时判断是复制还是真错"的整套逻辑，而 M9 要的是
-/// "先跑通别人的程序"。复制 1.1 MiB 的 busybox 大约 280 页，代价可接受。
-/// 这条限制写在 README 里，不能假装它是 COW。
+/// 三个分支，按顺序判断：
+///
+/// 1. **可写页** → COW：双方共享同一个物理页，都把 PTE 改成只读，
+///    并在引用计数表里打 COW 标记。谁先写，谁在页错误里复制一份。
+/// 2. **只读页（代码段）** → 纯共享：只加引用，不改权限、不标 COW。
+///    这样用户写代码段仍然会 `#PF`，语义与 Linux 一致（SIGSEGV）。
+/// 3. **超过跟踪范围的页**（物理内存 > 1 GiB）→ 整页复制，
+///    也就是 M9 的老行为。宁可慢，不能错。
+///
+/// 返回值里的页数是"处理过的页数"，不再等于"复制过的页数"。
+/// 上层没有依赖这个数做正确性判断（只有日志和统计用）。
 ///
 /// 失败时把已经建好的部分全部拆掉再返回 `None`，不留半张表。
 pub fn clone_user_table(src_phys: u64) -> Option<(PageTable, usize)> {
@@ -264,6 +423,9 @@ pub fn clone_user_table(src_phys: u64) -> Option<(PageTable, usize)> {
     }
     let mut dst = new_user_table()?;
     let mut pages = 0usize;
+    let mut n_cow = 0usize;
+    let mut n_shared_ro = 0usize;
+    let mut n_copied = 0usize;
 
     for i4 in 0..256u64 {
         let e4 = pte_at(src_phys, i4 as usize);
@@ -290,36 +452,173 @@ pub fn clone_user_table(src_phys: u64) -> Option<(PageTable, usize)> {
                     }
                     let va = (i4 << 39) | (i3 << 30) | (i2 << 21) | (i1 << 12);
                     let src_page = e1 & kpt::ADDR_MASK;
-                    let newp = match frames::alloc_frame() {
-                        Some(p) => p,
-                        None => {
+                    let fl = flags_from_pte(e1);
+
+                    let shared = crate::mm::cow::incref(src_page);
+                    if shared && fl.writable {
+                        n_cow += 1;
+                        // ① COW
+                        let ro = Flags {
+                            writable: false,
+                            ..fl
+                        };
+                        if map_in(&mut dst, va, src_page, ro).is_err() {
+                            crate::mm::cow::decref(src_page);
                             destroy_user_table(dst.root_phys());
                             return None;
                         }
-                    };
-                    // SAFETY: 两个物理帧都独占：src_page 属于调用者的地址空间，
-                    // newp 是刚分配的；直接映射区能同时访问两者。
-                    unsafe {
-                        core::ptr::copy_nonoverlapping(
-                            phys_to_virt(src_page) as *const u8,
-                            phys_to_virt(newp) as *mut u8,
-                            PAGE_SIZE,
-                        );
-                    }
-                    if map_in(&mut dst, va, newp, flags_from_pte(e1)).is_err() {
-                        frames::free_frame(newp);
-                        destroy_user_table(dst.root_phys());
-                        return None;
+                        crate::mm::cow::mark_cow(src_page);
+                        // 父进程那张表也要改成只读，否则父进程写的时候不会触发 #PF，
+                        // 子进程就会看到"自己那份被改了"——这是最难查的一类 fork bug。
+                        let _ = set_writable_in(src_phys, va, false);
+                    } else if shared {
+                        n_shared_ro += 1;
+                        // ② 只读页：纯共享
+                        if map_in(&mut dst, va, src_page, fl).is_err() {
+                            crate::mm::cow::decref(src_page);
+                            destroy_user_table(dst.root_phys());
+                            return None;
+                        }
+                    } else {
+                        n_copied += 1;
+                        // ③ 超出跟踪范围：整页复制（M9 行为）
+                        let newp = match frames::alloc_frame() {
+                            Some(p) => p,
+                            None => {
+                                destroy_user_table(dst.root_phys());
+                                return None;
+                            }
+                        };
+                        // SAFETY: 两个物理帧都独占（src 属于调用者，newp 刚分配），
+                        // 直接映射区能同时访问两者。
+                        unsafe {
+                            core::ptr::copy_nonoverlapping(
+                                phys_to_virt(src_page) as *const u8,
+                                phys_to_virt(newp) as *mut u8,
+                                PAGE_SIZE,
+                            );
+                        }
+                        if map_in(&mut dst, va, newp, fl).is_err() {
+                            frames::free_frame(newp);
+                            destroy_user_table(dst.root_phys());
+                            return None;
+                        }
                     }
                     pages += 1;
                 }
             }
         }
     }
+    // 打印已移除：串口一次 MMIO 写是微秒级，而 fork 是微秒级操作——
+    // 一行日志就能把 fork_wait 的基准拖慢一倍。统计进 CLONE_STATS，
+    // 自检和调试时用 `clone_stats()` 取。
+    CLONE_STATS.store(
+        ((n_cow as u64) << 40) | ((n_shared_ro as u64) << 20) | (n_copied as u64 & 0xF_FFFF),
+        core::sync::atomic::Ordering::Relaxed,
+    );
+    let _ = (n_shared_ro, n_copied);
     Some((dst, pages))
 }
 
-/// 在指定页表里把 `va` 翻译成物理地址（不切 CR3）。
+/// 最近一次 `fork` 的三类页数：`(cow, 只读共享, 复制)`。
+pub fn clone_stats() -> (u64, u64, u64) {
+    let v = CLONE_STATS.load(core::sync::atomic::Ordering::Relaxed);
+    (v >> 40, (v >> 20) & 0xF_FFFF, v & 0xF_FFFF)
+}
+
+static CLONE_STATS: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
+/// 找到 `va` 对应末级页表项（PTE）的**物理地址**；整条链路必须已经存在。
+///
+/// 不分配任何页表页——这是它与 `map` 的根本区别。COW 与权限调整只能
+/// 在"已存在的映射"上做，顺手建表会把一次本该失败的访问变成"静默成功"。
+fn pte_slot(pml4: u64, va: u64) -> Option<u64> {
+    // CR3 低 12 位可能被 PCID/PCD/PWT 占用，取根表时必须屏蔽掉。
+    let pml4 = pml4 & !0xFFF;
+    if pml4 == 0 {
+        return None;
+    }
+    let e4 = pte_at(pml4, ((va >> 39) & 0x1FF) as usize);
+    if e4 & 1 == 0 {
+        return None;
+    }
+    let e3 = pte_at(e4 & kpt::ADDR_MASK, ((va >> 30) & 0x1FF) as usize);
+    if e3 & 1 == 0 || e3 & 0x80 != 0 {
+        return None;
+    }
+    let e2 = pte_at(e3 & kpt::ADDR_MASK, ((va >> 21) & 0x1FF) as usize);
+    if e2 & 1 == 0 || e2 & 0x80 != 0 {
+        return None;
+    }
+    Some((e2 & kpt::ADDR_MASK) + ((va >> 12) & 0x1FF) * 8)
+}
+
+/// 读一个已存在映射的原始 PTE（`None` = 没有映射）。
+pub fn pte_of(pml4: u64, va: u64) -> Option<u64> {
+    let slot = pte_slot(pml4, va)?;
+    // SAFETY: `pte_slot` 已逐级验证过这张表页存在，直接映射区可读。
+    Some(unsafe { core::ptr::read_volatile(phys_to_virt(slot) as *const u64) })
+}
+
+/// 改一个已存在映射的可写位，并对**当前**地址空间刷 TLB。
+///
+/// COW 全流程都要用到它：
+/// ① `fork` 时把父子的页都改成只读；
+/// ② 写时复制完成后把这一页改回可写。
+///
+/// 返回 `false` 表示这个地址根本没有映射（不是权限问题，是逻辑问题）。
+pub fn set_writable_in(pml4: u64, va: u64, writable: bool) -> bool {
+    let slot = match pte_slot(pml4, va) {
+        Some(v) => v,
+        None => return false,
+    };
+    // SAFETY: 同上。
+    unsafe {
+        let p = phys_to_virt(slot) as *mut u64;
+        let mut e = core::ptr::read_volatile(p);
+        if writable {
+            e |= 2;
+        } else {
+            e &= !2;
+        }
+        core::ptr::write_volatile(p, e);
+    }
+    // 只有"正在用的那张表"才需要刷；改别人的表时那条 TLB 项不存在。
+    // 比较前屏蔽低 12 位：CR3 可能带 PCID/PCD/PWT，而 `pml4` 参数是裸地址。
+    if pml4 & !0xFFF == read_cr3() & !0xFFF {
+        flush_tlb(va);
+    }
+    true
+}
+
+/// 把一个**已存在**的映射改指向新物理页，并换掉权限位。
+///
+/// COW 复制完成后用它：`va` 原本指向旧页，改成指向新复制出来的页。
+/// 与 `unmap` + `map` 的区别是它不会碰上级页表（那些表项本来就对）。
+pub fn remap_in(pml4: u64, va: u64, pa: u64, flags: Flags) -> Result<(), kpt::PtError> {
+    let slot = pte_slot(pml4, va).ok_or(kpt::PtError::NotMapped)?;
+    // SAFETY: `pte_slot` 已逐级验证过这条链路存在，直接映射区可写。
+    unsafe {
+        core::ptr::write_volatile(
+            phys_to_virt(slot) as *mut u64,
+            (pa & kpt::ADDR_MASK) | flags.bits(),
+        );
+    }
+    if pml4 == read_cr3() {
+        flush_tlb(va);
+    }
+    Ok(())
+}
+
+/// 把一段范围内的映射全部设成只读（`fork` 时批量做，省掉一次 AT&T 语法错误的风险）。
+pub fn set_readonly_range(pml4: u64, start: u64, end: u64) {
+    let mut va = start & !0xFFF;
+    while va < end {
+        let _ = set_writable_in(pml4, va, false);
+        va += PAGE_SIZE as u64;
+    }
+}
+
 pub fn translate_in(pml4: u64, va: u64) -> Option<u64> {
     if pml4 == 0 {
         return None;

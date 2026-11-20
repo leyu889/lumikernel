@@ -1,0 +1,7 @@
+[package]
+name = "knet"
+version = "0.1.0"
+edition = "2021"
+description = "LumiKernel 网络协议栈：以太网/ARP/IPv4/ICMP/UDP/TCP（纯逻辑，宿主机可测）"
+
+[dependencies]

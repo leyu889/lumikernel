@@ -32,16 +32,29 @@ pub enum Point {
     DiskWrite = 5,
     /// 管道 / IPC 缓冲。
     Ipc = 6,
+    /// 磁盘控制器（AHCI）命令超时 / 端口失联。
+    ///
+    /// 与 `DiskRead`/`DiskWrite` 的区别：那两个是"这一块读坏了"（数据层），
+    /// 这个是"整个控制器没反应了"（设备层）——上层要能把设备标记为 down，
+    /// 而不是每一块都超时一遍。
+    AhciDown = 7,
+    /// 网卡失联（virtio/e1000 发送后设备不推进 used 环）。
+    NicDown = 8,
+    /// 显示 / 控制台设备失联（串口写不出去）。
+    ConsoleDown = 9,
 }
 
 impl Point {
-    pub const ALL: [Point; 6] = [
+    pub const ALL: [Point; 9] = [
         Point::Frame,
         Point::Heap,
         Point::Slab,
         Point::DiskRead,
         Point::DiskWrite,
         Point::Ipc,
+        Point::AhciDown,
+        Point::NicDown,
+        Point::ConsoleDown,
     ];
 
     pub const fn name(self) -> &'static str {
@@ -52,6 +65,9 @@ impl Point {
             Point::DiskRead => "disk-read",
             Point::DiskWrite => "disk-write",
             Point::Ipc => "ipc",
+            Point::AhciDown => "ahci-down",
+            Point::NicDown => "nic-down",
+            Point::ConsoleDown => "console-down",
         }
     }
 
@@ -64,6 +80,9 @@ impl Point {
             4 => Point::DiskRead,
             5 => Point::DiskWrite,
             6 => Point::Ipc,
+            7 => Point::AhciDown,
+            8 => Point::NicDown,
+            9 => Point::ConsoleDown,
             _ => return None,
         })
     }

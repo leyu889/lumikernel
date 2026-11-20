@@ -1,17 +1,19 @@
 # LumiKernel · 凝光内核
 
-> **English**: A from-scratch x86_64 monolithic kernel in Rust — own boot chain (BIOS + UEFI),
-> own AHCI/SATA driver, own journaled filesystem, and a Linux syscall subset that runs
-> static musl binaries (`busybox sh`). 58 kernel self-checks, 281 host unit tests,
-> fault injection + fuzz + soak, all reproducible from the command line.
-> Docs are in Chinese; code comments are in Chinese too, each explaining *why*.
-
-从引导扇区开始、一行 Linux 代码都不继承的 x86_64 **宏内核**（monolithic，与 Linux 同构）。
-驱动、文件系统、网络栈都在内核态；目标是**在受支持范围内比 Linux 更不容易崩，并且崩了能定位**。
+> **English** — A from-scratch x86_64 monolithic kernel in Rust. Own boot chain
+> (BIOS + UEFI), own AHCI/SATA driver, own journaled filesystem, own FAT16/32 reader,
+> and a Linux syscall subset that runs static musl binaries (`busybox sh`).
+> **61 kernel self-checks · 300+ host unit tests · fault injection, fuzz, soak,
+> driver-failure isolation, W^X audit** — all reproducible from one command.
+>
+> **中文** — 从引导扇区开始、一行 Linux 代码都不继承的 x86_64 宏内核。
+> 驱动、文件系统、协议栈全在内核态；目标是**在受支持范围内比 Linux 更不容易崩，并且崩了能定位**。
+> 文档与代码注释均为中文，注释解释*为什么*这样写，而不是复述代码在做什么。
 
 > 完整取舍见 [docs/00-定位与稳定性哲学.md](docs/00-定位与稳定性哲学.md)，
 > 架构见 [docs/01-架构.md](docs/01-架构.md)，里程碑见 [docs/02-路线图.md](docs/02-路线图.md)，
-> 十人分工见 [docs/03-十个工作包.md](docs/03-十个工作包.md)，规矩与坑见 [docs/04-工程规约.md](docs/04-工程规约.md)。
+> 十人分工见 [docs/03-十个工作包.md](docs/03-十个工作包.md)，规矩与坑见 [docs/04-工程规约.md](docs/04-工程规约.md)，
+> **规模对标（为什么行数比不上 Linux 不是缺陷）见 [docs/08-规模对标.md](docs/08-规模对标.md)**。
 
 ## 当前状态
 
@@ -31,9 +33,53 @@
 | **M9 Linux 兼容层**：`syscall` 指令通道、Linux 系统调用子集、musl 静态程序、VFS、`fork/execve/wait4` | ✅ **51/51**（2026-11-12，连跑 3 次；`busybox sh` 跑通 `echo`/`ls`/`cat`） |
 | **M10 真机**：UEFI 装载器（PE32+）、GPT+ESP 启动盘、自有 **AHCI(SATA)** 驱动、同盘三分区 | ✅ **51/51**（2026-11-16，UEFI+SATA 单盘连跑 3 次） |
 | **M11 稳定工程**：故障注入（帧/堆/磁盘）、系统调用与镜像 fuzz、长跑回归、跨系统微基准、S1–S7 判定、栈金丝雀 | ✅ **58/58**（2026-11-16，UEFI+SATA 连跑 3 次；S1–S7 全绿） |
+| **M12 性能与安全**：fork COW、mmap 懒分配、wait 立即唤醒、网络协议栈（knet）、virtio-net/e1000 驱动、FAT16/32、**驱动故障隔离**、SMEP/W^X | ✅ **61/61**（2026-11-20） |
 | crates 单测（14 个包，含 `klinux`/`kqa`/`lumifs`/`kbcache`） | ✅ **281 个全绿** |
 
 证据：`docs/证据/M0~M11-串口日志.txt` + 屏幕截图 + 崩溃演练（`docs/05-故障演练.md`）。
+
+### M12 做到了什么（性能对齐 + 故障隔离 + 安全）
+
+```
+[ OK ] driver:  降级→拒绝→恢复 ok，拒绝 1 次，恢复后内容一致
+[ OK ] security: SMEP=0（cap=0）W^X 违规=0（审计 1540 页）
+[ OK ] fat:    挂载成功，根目录 1 项，文件内容一致
+M12 self-test 61/61 passed
+```
+
+| 做了什么 | 数据 |
+|---|---|
+| **fork 写时复制** | fork 真实开销 **12 µs**（M11 整页复制 ~90 µs）；289 页里 15 页 COW、274 页只读共享、0 页复制 |
+| **mmap 懒分配** | 64 KiB mmap+munmap：**171 万 → 806 周期**（同一台机上 Linux 是 8426） |
+| **wait4 立即唤醒** | `wait_halts` 195 → **0**；fork+wait 从 61M 降到 **51 K 周期** |
+| **网络协议栈**（新 crate `knet`） | 以太网 / ARP / IPv4 / ICMP / UDP / TCP，**13 个宿主单测**；`knet::checksum` 对得上 RFC 1071 的样例 |
+| **virtio-net 驱动** | legacy 0.9.5 队列（desc/avail/used），QEMU/KVM/VBox 通用；e1000 作为真机兜底 |
+| **FAT16/32 只读驱动**（新 crate `kfat`） | 真实 U 盘格式；长文件名、变长簇链、**带防环上限**；5 个宿主单测 |
+| **驱动故障隔离** | 注入"控制器失联"→ 立刻 `Err`（不等超时）+ 状态 `Down` + 后续调用被健康门快速拒绝 + `recover` 后同一块盘内容逐字节一致 |
+| **安全** | SMEP 代码就位（VBox 不透传 CPUID，真机生效）；**W^X 审计 1540 页、0 违规**；SMAP 能力已探测，等所有用户访问统一走 `uaccess` 后再开 |
+
+#### M12 抓到的真 bug（挑最值钱的三类）
+
+1. **调度槽位泄漏**：`block_current` / `exit_current` / `wake` 三处用 `dequeue`
+   摘运行态任务——运行态不在队列里，`dequeue` 静默失败，槽位带着 `RUNNING`
+   永远不回 free list。泄漏到上限后 `spawn` 全部返回 `Duplicate`，
+   **内核线程从此再没被调度过**（表现为三个自检连锁失败）。
+   修法是新增 `ksched::detach()`，三处统一。
+2. **`me()` 进了 syscall 热路径**：`current_index()` 每次都读 APIC MMIO
+   （VBox 里一次 = 一个 VM exit），syscall 从 408 周期涨到 **44.7 K（110 倍）**。
+   单核期间索引恒 0，改成直接读 `CUR[0]`。
+3. **virtio used 环对齐**：队列只分配一页，而 used 环按规范要 4096 对齐——
+   它落在页外，读回来是 `0xFFFFFFFF`，设备写的完成项一个都看不到。
+
+#### 诚实的边界
+
+| 项 | 现状 |
+|---|---|
+| SMP 多核调度 | 4/8 个 AP 全部上线、per-CPU `CUR`/调度器多队列/跨核锁已就位；**真并行调度未启用**——8 核并发在 execve 密集路径静默卡死，根因是全局 TSS（多核要 per-CPU TSS+GDT）。AP 目前是空转 idle，`parallel` 自检证明它们真的在并行执行 |
+| 网络栈实机验证 | 协议栈与驱动代码完整、宿主单测全绿；VBox 的 virtio 环兼容性还没跑通（设备不消费 avail），**ping 未过**。这一项没有"过关"之前不写成支持 |
+| ext2 写入 | **没做**。可写能力由 LumiFS（日志式、带崩溃恢复）覆盖；ext2 保持只读是设计选择——改系统盘的风险远大于收益。FAT16/32 也是只读 |
+| SMEP | 代码就位但 VBox 不透传 `CPUID.07H:EBX[7]`，`cap=0`；真机上应能开启 |
+| SMAP | 只探测不启用：内核里还有几处直接访问用户内存的历史路径，没全部收进 `uaccess` 之前开它是负收益 |
 
 ### M11 做到了什么（把"稳"变成可数的东西）
 
@@ -45,7 +91,7 @@
 [ OK ] soak: 64 采样 × 500 轮，帧斜率 0‰ 堆斜率 0‰ 首尾差 0
 [ OK ] perf: frame=41ns heap=63ns read=19MiB/s lumifs=12.5ms exec=0.35ms pipe1k=184ns
 [ OK ] stack: 高水位 65 KiB / 256 KiB (25%), 金丝雀完好
-M11 self-test 58/58 passed
+M12 self-test 61/61 passed
 ```
 
 这一版**没有加任何新功能**，只做一件事：把 `docs/00-定位与稳定性哲学.md` 里的

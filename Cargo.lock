@@ -21,6 +21,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "kfat"
+version = "0.1.0"
+
+[[package]]
 name = "kfault"
 version = "0.1.0"
 
@@ -41,6 +45,10 @@ version = "0.1.0"
 
 [[package]]
 name = "kmem"
+version = "0.1.0"
+
+[[package]]
+name = "knet"
 version = "0.1.0"
 
 [[package]]
@@ -77,11 +85,13 @@ dependencies = [
  "kacpi",
  "kbcache",
  "kelf",
+ "kfat",
  "kfault",
  "kfs",
  "kheap",
  "klinux",
  "kmem",
+ "knet",
  "kpt",
  "kqa",
  "ksched",

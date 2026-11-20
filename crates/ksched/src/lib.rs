@@ -328,6 +328,34 @@ impl Scheduler {
         true
     }
 
+    /// 把一个任务从调度器里**彻底摘除**（无论它是就绪还是运行中）。
+    ///
+    /// `block` 场景专用。之前 `task::block_current` 用 `dequeue` 摘自己，
+    /// 但运行态任务不在队列里，`dequeue` 会静默失败——槽位带着 ST_RUNNING
+    /// 泄漏，之后 `wake` 里的 `spawn` 因 `Duplicate` 一直失败，被阻塞的
+    /// 任务只能等时钟 tick 兜底才能醒（实测 200 次 wait 有 194 次退化）。
+    ///
+    /// 返回 `false` 表示 tid 未知（调用方可安全忽略）。
+    pub fn detach(&mut self, tid: Tid) -> bool {
+        let slot = match self.find(tid) {
+            Some(s) => s,
+            None => return false,
+        };
+        let idx = slot as usize;
+        let cpu = self.slots[idx].cpu as usize;
+        // 运行标记先清掉：不管是 READY 还是 RUNNING 都不该再被 pick 到
+        if cpu < MAX_CPUS && self.running[cpu] == slot {
+            self.running[cpu] = SLOT_NONE;
+        }
+        if self.slots[idx].state == ST_READY && !self.unlink(cpu, slot) {
+            return false;
+        }
+        self.slots[idx] = Slot::EMPTY;
+        self.slots[idx].next = self.free_head;
+        self.free_head = slot;
+        true
+    }
+
     /// 给 `cpu` 上正在运行的任务记一笔时间账：`vruntime += delta * 1024 / weight(prio)`。
     ///
     /// `now` 目前不参与计算（本模型只按 `delta` 记账），保留参数以便上层对齐时间语义。

@@ -35,7 +35,11 @@ pub fn check_readable(ptr: u64, len: usize) -> bool {
     }
     let mut page = ptr & !0xFFF;
     while page < end {
-        if probe::run(VEC_PF, page, ProbeAction::Read(page)).recovered {
+        // 之前这里用"探针真读一次再恢复"。懒分配之后这招失灵了：
+        // 没映射的合法页会 #PF，探针把它当成坏指针——`cat` 于是
+        // 拿到 EFAULT（read 先 check_readable，而它的 buf 来自 mmap）。
+        // 现在用页表 + VMA 直接判定，探针留给故障注入自检。
+        if !crate::mm::fault::can_read(page) {
             return false;
         }
         page = match page.checked_add(0x1000) {
@@ -62,10 +66,12 @@ pub fn check_writable(ptr: u64, len: usize) -> bool {
     if !kvm::is_canonical(ptr) || !kvm::is_canonical(end - 1) {
         return false;
     }
-    let cr3 = crate::mm::paging::read_cr3();
     let mut page = ptr & !0xFFF;
     while page < end {
-        if !crate::mm::paging::page_writable_in(cr3, page) {
+        // `can_write` 同时覆盖三种"写了会成功"的页：
+        // 普通可写页、COW 只读页（写会触发复制）、带 PROT_WRITE 的懒页。
+        // 只查 PTE 的 W 位会把后两种误判成坏指针。
+        if !crate::mm::fault::can_write(page) {
             return false;
         }
         page = match page.checked_add(0x1000) {
@@ -81,10 +87,19 @@ pub fn copy_in(uptr: u64, out: &mut [u8]) -> Result<(), i64> {
     if out.is_empty() {
         return Ok(());
     }
-    let _g = PreemptGuard::new();
     if !check_readable(uptr, out.len()) {
         return Err(err(EFAULT));
     }
+    unchecked_copy_in(uptr, out)
+}
+
+/// **已由调用方验证过可读**的拷贝。
+///
+/// `read` 这类入口在开头就把整段缓冲查过一遍了，`copy_out` 里再查一遍
+/// 等于每页多走四次页表遍历——bench 里 read_4k 的一半开销都在这。
+/// 任何用户指针都必须先过 `check_*`，这条纪律写在这里不写在调用点。
+pub fn unchecked_copy_in(uptr: u64, out: &mut [u8]) -> Result<(), i64> {
+    let _g = PreemptGuard::new();
     for (i, slot) in out.iter_mut().enumerate() {
         // SAFETY: 上面逐页确认可读，且抢占已关。
         *slot = unsafe { core::ptr::read_volatile((uptr + i as u64) as *const u8) };
@@ -97,10 +112,15 @@ pub fn copy_out(uptr: u64, src: &[u8]) -> Result<(), i64> {
     if src.is_empty() {
         return Ok(());
     }
-    let _g = PreemptGuard::new();
     if !check_readable(uptr, src.len()) || !check_writable(uptr, src.len()) {
         return Err(err(EFAULT));
     }
+    unchecked_copy_out(uptr, src)
+}
+
+/// 已验证的拷出（见 [`unchecked_copy_in`] 的理由）。
+pub fn unchecked_copy_out(uptr: u64, src: &[u8]) -> Result<(), i64> {
+    let _g = PreemptGuard::new();
     for (i, b) in src.iter().enumerate() {
         // SAFETY: 已确认可写，抢占已关。
         unsafe { core::ptr::write_volatile((uptr + i as u64) as *mut u8, *b) };

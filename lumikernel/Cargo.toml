@@ -21,4 +21,6 @@ kelf = { path = "../crates/kelf" }
 lumifs = { path = "../crates/lumifs" }
 kbcache = { path = "../crates/kbcache" }
 klinux = { path = "../crates/klinux" }
+kfat = { path = "../crates/kfat" }
+knet = { path = "../crates/knet" }
 kqa = { path = "../crates/kqa" }

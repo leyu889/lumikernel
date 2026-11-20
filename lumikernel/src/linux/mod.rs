@@ -21,6 +21,7 @@
 
 pub mod fs;
 pub mod mem;
+pub mod net;
 pub mod proc;
 pub mod trace;
 pub mod uaccess;
@@ -48,6 +49,15 @@ pub fn dispatch(f: &mut InterruptFrame) {
         NR::OPEN => fs::openat(klinux::flags::AT_FDCWD, a0, a1 as u32, 0),
         NR::OPENAT => fs::openat(a0, a1, a2 as u32, a3 as u32),
         NR::CLOSE => fs::close(a0),
+        // ---- 网络（M12）----
+        NR::SOCKET => net::socket(a0, a1, a2),
+        NR::BIND => net::bind(a0 as i64, a1, a2),
+        NR::LISTEN => net::listen(a0 as i64, a1),
+        NR::CONNECT => net::connect(a0 as i64, a1, a2),
+        NR::ACCEPT => net::accept(a0 as i64, a1, a2),
+        NR::SENDTO => net::sendto(a0 as i64, a1, a2, a3, a4, a5),
+        NR::RECVFROM => net::recvfrom(a0 as i64, a1, a2, a3, a4, a5),
+        NR::SETSOCKOPT | NR::GETSOCKOPT => 0, // musl 常用 no-op 选项直接放行
         NR::STAT | NR::LSTAT => fs::newfstatat(
             klinux::flags::AT_FDCWD,
             a0,

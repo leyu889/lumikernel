@@ -83,7 +83,40 @@ pub struct Task {
     pub mmap_top: u64,
     /// 父进程 tid（`getppid` 用）。0 表示没有父进程。
     pub parent: u64,
+    /// 任务归属的调度核。wake 时按它回原队列（而不是全局抢 CPU0）。
+    pub sched_cpu: u8,
+
+    /* ---- M12：匿名 mmap 的区域表（懒分配的判据） ---- */
+    /// 已登记的匿名映射区间。页错误发生时靠它区分
+    /// "合法的按需分配"和"用户程序的野指针"。
+    ///
+    /// 为什么不用类似 Linux 的红黑树：匿名 mmap 的区间个数在真实程序里
+    /// 是个位数（musl 的 malloc 一次要 32 MiB，glibc 要几个 arena），
+    /// 线性扫描比维护树更省事，也更容易审计。
+    pub vmas: [Vma; VMA_MAX],
+    pub vma_count: u8,
 }
+
+/// 一段匿名映射。
+#[derive(Clone, Copy)]
+pub struct Vma {
+    pub start: u64,
+    /// 不含（开区间右端）。
+    pub end: u64,
+    /// `PROT_READ=1` / `PROT_WRITE=2` / `PROT_EXEC=4`，与 Linux 同值。
+    pub prot: u32,
+    pub used: bool,
+}
+
+impl Vma {
+    pub const FREE: Vma = Vma { start: 0, end: 0, prot: 0, used: false };
+}
+
+/// 每个进程最多记多少段匿名映射。
+///
+/// 24 段 × 24 字节 = 576 字节/任务。任务表 64 项，总共 36 KiB（BSS）。
+/// 真不够时 `mmap` 会退化成"立即分配"，不会失败——见 `linux/mem.rs`。
+pub const VMA_MAX: usize = 24;
 
 /// 工作目录缓冲长度。Linux 的 `PATH_MAX` 是 4096，但对一个只会
 /// `cd /` 或 `cd /bin` 的 shell，128 字节足够，且不会把 `Task` 撑得太大。
@@ -109,6 +142,9 @@ impl Task {
             brk_start: 0,
             mmap_top: 0,
             parent: 0,
+            vmas: [Vma::FREE; VMA_MAX],
+            vma_count: 0,
+            sched_cpu: 0,
         }
     }
 }
@@ -136,12 +172,35 @@ fn sched() -> &'static mut Scheduler {
     unsafe { (*SCHED.0.get()).assume_init_mut() }
 }
 
-static CUR: AtomicUsize = AtomicUsize::new(0);
+/// 每个 CPU 当前运行的任务槽位。
+///
+/// 之前是单个 `AtomicUsize`——那是"所有任务都在 BSP 上跑"时代的产物。
+/// AP 开始跑调度循环后，两核各自有不同的"当前任务"，一个全局量会让
+/// AP 上的内核线程 `exit_current` 去改 BSP 正在用的槽位（灾难）。
+///
+/// 索引用 `arch::smp::me()`：AP 进调度循环前 LAPIC 已初始化，能拿到自己的号。
+static CUR: [AtomicUsize; crate::intr::acpi::MAX_CPUS] =
+    [const { AtomicUsize::new(0) }; crate::intr::acpi::MAX_CPUS];
 static NEXT_TID: AtomicU64 = AtomicU64::new(1);
 static SWITCHES: AtomicU64 = AtomicU64::new(0);
 static PREEMPT_OFF: AtomicU32 = AtomicU32::new(0);
 static QUANTUM_LEFT: AtomicU32 = AtomicU32::new(QUANTUM);
 static INITIALIZED: AtomicBool = AtomicBool::new(false);
+
+/// 保护调度器内部结构的跨核自旋锁。
+///
+/// 临界区纪律：**`switch_to` 之前必须释放**。切换本身不在锁内——
+/// 被切出的任务恢复执行时会从 `switch_to` 返回，续跑本函数的剩余部分，
+/// 那时锁早已放开；两核交替拿锁也不会互相困死。
+///
+/// `pick` 之后任务已被摘出队列并标记 RUNNING，所以释放锁到
+/// 真正切换之间不存在"别人也选中它"的窗口。
+static SCHED_LOCK: crate::arch::sync::IrqSpinlock<()> =
+    crate::arch::sync::IrqSpinlock::new(());
+
+/// 保护 `EXIT_WAIT`（谁在等谁退出）。同样不得在临界区内切换任务。
+static WAIT_LOCK: crate::arch::sync::IrqSpinlock<()> =
+    crate::arch::sync::IrqSpinlock::new(());
 static EXITED: AtomicU64 = AtomicU64::new(0);
 /// 因**时间片耗尽**而发生的切换次数。这是抢占的直接证据：
 /// `switches` 里还混着"任务自己退出导致的切换"，不能用来证明抢占。
@@ -199,7 +258,10 @@ impl Drop for PreemptGuard {
 pub fn init() -> Result<(), &'static str> {
     // SAFETY: 启动阶段单核、中断关闭；对任务表与调度器独占写入。
     let s = sched();
-    s.init_in_place(1);
+    // 队列数 = 实际核数：AP 的 idle/内核线程会落到自己的队列里。
+    // 比起"8 个队列只用 1 个"，让调度器一开始就知道真实拓扑，
+    // 后面把用户任务分布到多核时不需要再动这里。
+    s.init_in_place(crate::arch::smp::count().max(1));
     // 0 号任务先入队再取出标为 running，这样 `pick` 的 retire 逻辑能正常把它放回队列。
     s.spawn(0, 20, 0, 0).map_err(|_| "调度器初始化失败")?;
     s.set_running(0, Some(0));
@@ -228,9 +290,14 @@ pub fn init() -> Result<(), &'static str> {
             brk_start: 0,
             mmap_top: 0,
             parent: 0,
+            vmas: [Vma::FREE; VMA_MAX],
+            vma_count: 0,
+            sched_cpu: 0,
         };
     }
-    CUR.store(0, Ordering::Relaxed);
+    for c in CUR.iter() {
+        c.store(0, Ordering::Relaxed);
+    }
     INITIALIZED.store(true, Ordering::Relaxed);
     Ok(())
 }
@@ -269,9 +336,15 @@ fn build_stack(top: u64, rip: u64, rsp: u64, cs: u16, ss: u16, rflags: u64) -> u
 }
 
 fn alloc_slot() -> Option<usize> {
-    // SAFETY: 单核，调用方保证不并发。
+    // AP 的调度循环也会建 idle 任务，BSP 可能同时在 spawn——
+    // 找空槽必须互斥，否则两核拿到同一个槽位（表现是任务互相覆盖，
+    // 随机崩在"task 字段被改"上，现场毫无线索）。
+    let g = SCHED_LOCK.lock();
+    // SAFETY: 已持锁独占。
     let t = unsafe { &mut *TASKS.0.get() };
-    t.iter().position(|s| s.state == State::Free)
+    let r = t.iter().position(|s| s.state == State::Free);
+    drop(g);
+    r
 }
 
 fn alloc_kstack() -> Option<(u64, u64)> {
@@ -281,11 +354,134 @@ fn alloc_kstack() -> Option<(u64, u64)> {
 }
 
 /// 创建一个内核线程。`entry` 应当是永不返回的函数（结束时调 [`exit_current`]）。
+/// 内核线程轮流落到的 CPU（BSP=0 之外还有多少可用核就轮到多少号）。
+static KT_CPU: AtomicUsize = AtomicUsize::new(0);
+
+/// AP 的调度入口：为本核建一个常驻 idle 任务，然后进标准调度循环。
+///
+/// **为什么 idle 要是一个真任务**：调度器的 retire/时间片逻辑都围绕
+/// "当前运行任务"工作。AP 直接裸跑 `pick` 循环的话，`running[cpu]`
+/// 永远是空，时间片记账无从谈起。给每核一个永不退出的 idle 任务，
+/// AP 就和一个普通任务没有区别——调度代码一行不用改。
+pub fn ap_scheduler_start() -> ! {
+    let cpu = crate::arch::smp::me().expect("AP 调度循环必须能拿到自己的核号");
+    let slot = alloc_slot().expect("AP idle 任务分配失败");
+    let (kstack_phys, top) = alloc_kstack().expect("AP idle 内核栈分配失败");
+    let tid = NEXT_TID.fetch_add(1, Ordering::Relaxed);
+
+    let kstack = build_stack(
+        top,
+        ap_idle as usize as u64,
+        top - 1024,
+        crate::arch::gdt::KERNEL_CS,
+        crate::arch::gdt::KERNEL_DS,
+        0x202,
+    );
+    // SAFETY: slot 刚分配独占；启动阶段 AP 尚未接收任务。
+    unsafe {
+        let t = &mut *TASKS.0.get();
+        t[slot] = Task {
+            state: State::Running,
+            tid,
+            kstack_top: top,
+            kstack_base: kstack_phys,
+            kstack,
+            user: false,
+            exit_code: 0,
+            ticks: 0,
+            pml4: paging::kernel_cr3(),
+            fds: crate::fd::new_table(),
+            fs_base: 0,
+            cwd: cwd_root(),
+            cwd_len: 1,
+            brk: 0,
+            brk_start: 0,
+            mmap_top: 0,
+            parent: 0,
+            sched_cpu: cpu as u8,
+            vmas: [Vma::FREE; VMA_MAX],
+            vma_count: 0,
+        };
+    }
+    CUR[cpu].store(slot, Ordering::Relaxed);
+    {
+        let g = SCHED_LOCK.lock();
+        let _ = sched().spawn(tid, 0, 0, cpu); // prio 0：最低权重，有活让活干
+        // running 标记必须是**自己的 tid**：写死 0 会让 AP 的 retire 把
+        // BSP 主任务（tid0）放回 AP 队列——同一个任务出现在两个核的
+        // 队列里，unlink 一半就是调度器结构损坏（静默卡死的元凶）。
+        let _ = sched().set_running(cpu, Some(tid));
+        drop(g);
+    }
+    INITIALIZED.store(true, Ordering::Release);
+    crate::intr::enable();
+    ap_idle()
+}
+
+/// 每核的 idle：有活就切过去跑，没活就睡。
+extern "C" fn ap_idle() -> ! {
+    loop {
+        if !schedule_on_me() {
+            // SAFETY: 没有可跑任务时等中断（定时器 tick 或未来的 IPI）。
+            unsafe { core::arch::asm!("hlt", options(nomem, nostack, preserves_flags)) };
+        }
+    }
+}
+
+/// 在**本核**跑一轮调度：pick 自己队列的任务并切过去，任务让出后返回 true。
+/// 没有可跑任务返回 false（调用方 hlt）。
+fn schedule_on_me() -> bool {
+    if !INITIALIZED.load(Ordering::Relaxed) {
+        return false;
+    }
+    let cpu = crate::arch::smp::me().unwrap_or(0);
+    let g = SCHED_LOCK.lock();
+    let now = timer::ticks();
+    let next = sched().pick(cpu, now);
+    let picked = match next {
+        Some(tid) => {
+            // SAFETY: 持锁独占。
+            let base = TASKS.0.get();
+            let idx = (0..MAX_TASKS)
+                .find(|i| unsafe { (*base)[*i].tid == tid && (*base)[*i].state != State::Free });
+            match idx {
+                Some(i) if i != CUR[cpu].load(Ordering::Relaxed) => {
+                    unsafe {
+                        let cur_p = (*base).as_mut_ptr().add(CUR[cpu].load(Ordering::Relaxed));
+                        if (*cur_p).state == State::Running {
+                            (*cur_p).state = State::Ready;
+                        }
+                        (*(*base).as_mut_ptr().add(i)).state = State::Running;
+                    }
+                    CUR[cpu].store(i, Ordering::Relaxed);
+                    Some(i)
+                }
+                _ => None,
+            }
+        }
+        None => None,
+    };
+    drop(g);
+    match picked {
+        Some(_) => true, // 任务切走又切回（时间片/让出），本轮完成
+        None => false,
+    }
+}
+
 pub fn spawn_kthread(entry: extern "C" fn()) -> Result<u64, &'static str> {
     let _g = PreemptGuard::new();
     let slot = alloc_slot().ok_or("任务表已满")?;
     let (kstack_phys, top) = alloc_kstack().ok_or("内核栈分配失败")?;
     let tid = NEXT_TID.fetch_add(1, Ordering::Relaxed);
+    // 多核调度未启用（见 smp.rs 注）：所有任务落 CPU0。
+    //
+    // **这里必须写死 0，不能用 `count()` 轮转**：`count()` 在 AP 上线后
+    // 会变成 4/8，而调度器的队列数在 `task::init`（AP 尚未上线）就定型为
+    // 当时的 `count()`——两个数在时间上永远错开，轮转出来的 cpu 号
+    // 必然 `BadCpu` 被调度器拒绝，内核线程无声消失。
+    // 启用多核调度时：init_in_place 用 MADT 的核总数，这里恢复轮转。
+    let _ = KT_CPU.fetch_add(1, Ordering::Relaxed);
+    let cpu = 0;
 
     let kstack = build_stack(
         top,
@@ -295,6 +491,7 @@ pub fn spawn_kthread(entry: extern "C" fn()) -> Result<u64, &'static str> {
         gdt::KERNEL_DS,
         0x202, // IF=1
     );
+    let _ = cpu;
 
     // SAFETY: 单核 + 抢占已关闭；slot 与 tid 都是本函数独占。
     unsafe {
@@ -317,8 +514,14 @@ pub fn spawn_kthread(entry: extern "C" fn()) -> Result<u64, &'static str> {
             brk_start: 0,
             mmap_top: 0,
             parent: 0,
+            vmas: [Vma::FREE; VMA_MAX],
+            vma_count: 0,
+            sched_cpu: 0,
         };
-        sched().spawn(tid, 20, timer::ticks(), 0).map_err(|_| "调度器拒绝该任务")?;
+        if let Err(e) = sched().spawn(tid, 20, timer::ticks(), cpu) {
+            kserialln!("[kt] spawn 被拒绝 tid={} err={:?} cpu={}", tid, e, cpu);
+            return Err("调度器拒绝该任务");
+        }
     }
     Ok(tid)
 }
@@ -418,6 +621,9 @@ pub fn spawn_user_exact(entry: u64, user_sp: u64, pml4: u64) -> Result<u64, &'st
             brk_start: 0,
             mmap_top: 0,
             parent: 0,
+            vmas: [Vma::FREE; VMA_MAX],
+            vma_count: 0,
+            sched_cpu: 0,
         };
         sched().spawn(tid, 20, timer::ticks(), 0).map_err(|_| "调度器拒绝该任务")?;
     }
@@ -460,6 +666,11 @@ pub fn spawn_user_clone(frame: &InterruptFrame, pml4: u64) -> Result<u64, &'stat
             brk_start: parent.brk_start,
             mmap_top: parent.mmap_top,
             parent: parent.tid,
+            // 子进程继承父进程的匿名映射区间：地址空间是 COW 复制过来的，
+            // 区间表必须跟着复制，否则子进程一碰共享页就找不到"这页该有映射"。
+            vmas: parent.vmas,
+            vma_count: parent.vma_count,
+            sched_cpu: parent.sched_cpu,
         };
         sched().spawn(tid, 20, timer::ticks(), 0).map_err(|_| "调度器拒绝该任务")?;
     }
@@ -493,7 +704,17 @@ fn build_stack_from_frame(top: u64, src: &InterruptFrame, ret_rax: u64) -> u64 {
 /* ---------------- 调度 ---------------- */
 
 fn current_index() -> usize {
-    CUR.load(Ordering::Relaxed)
+    // **必须读 CUR[0]**：`me()` 是一次 APIC MMIO 读（VBox 里 = VM exit，
+    // 数千周期），它现在在 syscall 热路径上——每次 getpid/getpid 都读
+    // 一次 MMIO，实测 syscall 从 408 周期涨到 44.7K（110 倍）。
+    // 多核调度未启用，所有任务恒在核 0；启用多核时恢复 me() 索引
+    // （配合 per-CPU APIC id 缓存，见 docs/08 的 SMP 待办）。
+    CUR[0].load(Ordering::Relaxed)
+}
+
+#[allow(dead_code)]
+fn current_index_on(cpu: usize) -> usize {
+    CUR[cpu].load(Ordering::Relaxed)
 }
 
 /// 某个任务的地址空间（诊断用）。
@@ -552,7 +773,7 @@ fn schedule_inner() -> bool {
         }
         let next_p = base.add(next_idx);
         (*next_p).state = State::Running;
-        CUR.store(next_idx, Ordering::Relaxed);
+        CUR[crate::arch::smp::me().unwrap_or(0)].store(next_idx, Ordering::Relaxed);
         // 用户任务的内核栈必须自己带，否则会踩到上一个用户任务的栈
         gdt::set_rsp0((*next_p).kstack_top);
         QUANTUM_LEFT.store(QUANTUM, Ordering::Relaxed);
@@ -650,8 +871,12 @@ pub fn exit_current(code: i64) -> ! {
         let tid = (*p).tid;
 
         let s = sched();
-        s.set_running(0, None); // 退役回队列
-        let _ = s.dequeue(tid); // 再摘掉，彻底不参与调度
+        // **必须用 detach**：运行态任务不在就绪队列里，`dequeue` 会静默
+        // 失败（它只摘 ST_READY），槽位带着 ST_RUNNING 永远不回 free list。
+        // 泄漏累积到 ksched 槽位上限后，`spawn` 全部返回 Duplicate/Full——
+        // 内核线程从此没被调度过，fd-table/pipe/perf 三个自检连锁失败。
+        // 这是同一根因第三次咬人（前两次：block_current、wake）。
+        s.detach(tid);
     }
     EXITED.fetch_add(1, Ordering::Relaxed);
 
@@ -660,10 +885,15 @@ pub fn exit_current(code: i64) -> ! {
     // 就来查我们的退出码，那时状态必须已经是 Zombie。
     crate::fd::close_all();
 
-    // 叫醒所有在等我们退出的人
-    let (waiters, n) = exit_waiters(tid_of(cur));
-    for i in 0..n {
-        wake(waiters[i]);
+    // 叫醒所有在等我们退出的人。
+    // 锁内只取快照，wake 放到锁外——wake 会动调度器，那是另一把锁，
+    // 两把锁嵌套容易把加锁顺序搞错，一旦反序就是跨核死锁。
+    let waiters = {
+        let w = WAIT_LOCK.lock();
+        exit_waiters(tid_of(cur))
+    };
+    for i in 0..waiters.1 {
+        wake(waiters.0[i]);
     }
 
     loop {
@@ -700,6 +930,19 @@ pub fn current_task_mut() -> Option<&'static mut Task> {
 /// （见 `pipe.rs` 顶部关于 lost wakeup 的说明）。
 ///
 /// 返回 `false` 表示没有别的任务可运行，调用方应当撤销登记。
+/// 从任务表查某任务的调度核归属（wake 时用；不依赖 SCHED_LOCK）。
+fn sched_cpu_of(tid: u64) -> usize {
+    // SAFETY: 只读遍历；tid 对应的槽位由任务生命周期保证存在。
+    unsafe {
+        let base = TASKS.0.get();
+        (0..MAX_TASKS)
+            .map(|i| &(*base)[i])
+            .find(|t| t.tid == tid && t.state != State::Free)
+            .map(|t| t.sched_cpu as usize)
+            .unwrap_or(0)
+    }
+}
+
 pub fn block_current() -> bool {
     if !INITIALIZED.load(Ordering::Relaxed) {
         return false;
@@ -713,10 +956,14 @@ pub fn block_current() -> bool {
             return false;
         }
         let tid = (*p).tid;
-        // 先从调度器摘掉，再标状态：反过来会出现"状态是 Blocked 但还在运行队列里"，
-        // 于是 pick 会挑中一个不该跑的任务。
-        sched().set_running(0, None);
-        let _ = sched().dequeue(tid);
+        // 从调度器里彻底摘掉再标状态：反过来会出现"状态是 Blocked 但还在
+        // 运行队列里"，pick 会挑中一个不该跑的任务。
+        //
+        // **必须用 `detach` 而不是 `dequeue`**：运行态任务不在队列里，
+        // `dequeue` 会静默失败，槽位带着 ST_RUNNING 泄漏——之后 wake 里的
+        // `spawn` 因 `Duplicate` 一直失败，被阻塞的任务只能等 tick 兜底
+        // （实测 200 次 wait 有 194 次退化成 10 ms 级延迟）。
+        sched().detach(tid);
         (*p).state = State::Blocked;
     }
     let switched = schedule_inner();
@@ -756,6 +1003,8 @@ pub fn wake(tid: u64) -> bool {
             return false;
         }
         (*p).state = State::Ready;
+        // 多核调度未启用（见 smp.rs 注）：任务全在 CPU0 的队列。
+        // sched_cpu_of() 的逻辑保留在函数里，启用多核时恢复。
         if sched().spawn(tid, 20, timer::ticks(), 0).is_err() {
             (*p).state = State::Blocked;
             return false;
@@ -904,8 +1153,27 @@ fn has_child(parent: u64, pid: i64) -> bool {
 ///
 /// 和 [`wait_zombie`] 的区别：这里的等待对象是"任意子进程"，
 /// 所以登记时用 [`WAIT_ANY`] 通配；退出路径会连这个一起叫醒。
+/// `wait_child` 里被迫用 `halt` 等时钟的次数。
+///
+/// 正常路径下父进程会被子进程的 `exit` 直接叫醒，这个数**必须是 0**；
+/// 不为 0 说明唤醒链路漏了人，等待退化成"等下一个时钟 tick"（10 ms）。
+pub static WAIT_HALTS: core::sync::atomic::AtomicU64 = core::sync::atomic::AtomicU64::new(0);
+
 pub fn wait_child(pid: i64) -> Option<(u64, i64)> {
     let me = current_tid();
+    // 无论从哪个出口离开，都先把自己的登记清掉。
+    //
+    // 这张表只有 8 项，而"登记成功 → 被唤醒 → reap"的主路径**没有任何人删它**
+    // ——`exit_wait_del` 只在"block 失败"的分支被调。于是连续 wait 的进程
+    // 第 9 次起 `exit_wait_add` 全部失败，永远走不上阻塞唤醒，
+    // 退化成每次 10 ms 的 halt 轮询（实测 200 次 fork 里 195 次）。
+    struct Cleanup(u64);
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            exit_wait_del(self.0);
+        }
+    }
+    let _cleanup = Cleanup(me);
     loop {
         if let Some(z) = zombie_child(me, pid) {
             return Some(z);
@@ -914,22 +1182,57 @@ pub fn wait_child(pid: i64) -> Option<(u64, i64)> {
             return None;
         }
 
+        // 关中断 + WAIT_LOCK：EXIT_WAIT 现在被多个核并发读写
+        // （exit 在子进程所在的核，wait 在父进程所在的核），
+        // 只关本核中断挡不住另一核。锁内只做表操作，不切换。
         let irq = crate::arch::sync::disable_irq_save();
-        // 复查一次：从上面的检查到关中断之间，子进程可能刚好退出
+        let w = WAIT_LOCK.lock();
+        // 复查一次：从上面的检查到拿锁之间，子进程可能刚好退出
         if let Some(z) = zombie_child(me, pid) {
+            drop(w);
             crate::arch::sync::restore_irq(irq);
             return Some(z);
         }
         let target = if pid > 0 { pid as u64 } else { WAIT_ANY };
-        if exit_wait_add(me, target) {
-            if !block_current() {
-                exit_wait_del(me);
-            }
+        let added = exit_wait_add(me, target);
+        drop(w);
+        if added && !block_current() {
+            let w = WAIT_LOCK.lock();
+            exit_wait_del(me);
+            drop(w);
         }
         crate::arch::sync::restore_irq(irq);
 
         // 没人可跑时，让时钟推进一下再看（否则这一轮等于空转）
         if zombie_child(me, pid).is_none() {
+            WAIT_HALTS.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
+            // 限流打印队列现场：谁在就绪队列里、自己是什么状态。
+            // 这是定位"唤醒链路漏洞"的唯一途径——代码推演推不出来时，
+            // 让硬件自己说话。
+            {
+                use core::sync::atomic::Ordering as O;
+                static DIAG: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
+                if DIAG.fetch_add(1, O::Relaxed) < 3 {
+                    // SAFETY: 中断当前是关的（上面 disable 过），独占任务表。
+                    let (n, list) = unsafe {
+                        let base = TASKS.0.get();
+                        let mut buf = [0u64; 8];
+                        let mut cnt = 0usize;
+                        for (i, t) in (*base).iter().enumerate() {
+                            if t.state == State::Ready && cnt < 8 {
+                                buf[cnt] = t.tid;
+                                cnt += 1;
+                            }
+                        }
+                        let me_t = &(*base)[current_index()];
+                        (cnt, (buf, me_t.tid, me_t.state as u8))
+                    };
+                    kserialln!(
+                        "[wait] halt 现场：me=tid{} state={} ready 列表 n={} {:?}",
+                        list.1, list.2, n, list.0
+                    );
+                }
+            }
             crate::intr::enable();
             crate::intr::frame::halt_once();
             crate::intr::disable();
@@ -1082,11 +1385,21 @@ pub fn fs_base() -> u64 {
 }
 
 /// 初始化 `brk` 区域（ELF 装载完成后调用）。
+/// 设置 `brk` 起点与 `mmap` 起点。
+///
+/// **只在换成新地址空间时调用**（`execve`、初始装载），所以这里顺手把
+/// VMA 表清空——旧程序的匿名映射不该被新程序继承。漏掉这一步的表现是：
+/// `execve` 之后新程序访问某个"已经不存在"的区间，页错误被旧 VMA 认领，
+/// 于是静默分配了一页，而不是报段错误。
 pub fn set_brk_range(start: u64, mmap_top: u64) {
     if let Some(t) = current_task_mut() {
         t.brk_start = start;
         t.brk = start;
         t.mmap_top = mmap_top;
+        for i in 0..VMA_MAX {
+            t.vmas[i].used = false;
+        }
+        t.vma_count = 0;
     }
 }
 
@@ -1111,6 +1424,88 @@ pub fn mmap_top() -> u64 {
 pub fn set_mmap_top(v: u64) {
     if let Some(t) = current_task_mut() {
         t.mmap_top = v;
+    }
+}
+
+/// 登记一段匿名映射。返回 `false` 表示表满。
+///
+/// 表满时调用方应退回"立即分配"——绝不能返回错误，
+/// 那会让一个本来能跑的程序突然 `mmap` 失败。
+pub fn vma_add(start: u64, end: u64, prot: u32) -> bool {
+    let t = match current_task_mut() {
+        Some(t) => t,
+        None => return false,
+    };
+    for i in 0..VMA_MAX {
+        if !t.vmas[i].used {
+            t.vmas[i] = Vma { start, end, prot, used: true };
+            t.vma_count = t.vma_count.saturating_add(1);
+            return true;
+        }
+    }
+    false
+}
+
+/// 查一个地址属于哪段匿名映射，返回 `PROT_*`。
+pub fn vma_lookup(va: u64) -> Option<u32> {
+    let t = current_task_mut()?;
+    for i in 0..VMA_MAX {
+        let v = t.vmas[i];
+        if v.used && va >= v.start && va < v.end {
+            return Some(v.prot);
+        }
+    }
+    None
+}
+
+/// 拆掉与 `[start, end)` 重叠的登记项（`munmap` 用）。
+///
+/// 只做"整段丢弃"：区间被部分拆掉时把剩余部分重新登记。
+/// 这是近似的，但对"malloc 申请 64 KiB 又整段还回来"这种真实用法足够。
+pub fn vma_remove(start: u64, end: u64) {
+    let t = match current_task_mut() {
+        Some(t) => t,
+        None => return,
+    };
+    for i in 0..VMA_MAX {
+        let v = t.vmas[i];
+        if !v.used || v.end <= start || v.start >= end {
+            continue;
+        }
+        if v.start >= start && v.end <= end {
+            t.vmas[i].used = false;
+            t.vma_count = t.vma_count.saturating_sub(1);
+        } else if v.start < start && v.end > end {
+            // 从中间挖个洞：左半段保留，右半段挪到别的槽位。
+            // 这里**不能**调 `vma_add`——它内部会再拿一次 `&mut Task`，
+            // 而 `t` 已经借着了（两个可变引用同时存在是 UB，即使编译能过）。
+            t.vmas[i].end = start;
+            let mut placed = false;
+            for j in 0..VMA_MAX {
+                if !t.vmas[j].used {
+                    t.vmas[j] = Vma { start: end, end: v.end, prot: v.prot, used: true };
+                    placed = true;
+                    break;
+                }
+            }
+            if !placed {
+                // 表满：右半段也丢掉。这会让那段的访问变成"野指针"而不是
+                // "按需分配"——是可见的降级，不是静默错误。
+                t.vmas[i].end = v.end;
+            }
+        } else if v.start < start {
+            t.vmas[i].end = start;
+        } else {
+            t.vmas[i].start = end;
+        }
+    }
+}
+
+/// 当前任务还剩几段可登记（诊断用）。
+pub fn vma_free_slots() -> usize {
+    match current_task_mut() {
+        Some(t) => (0..VMA_MAX).filter(|&i| !t.vmas[i].used).count(),
+        None => 0,
     }
 }
 

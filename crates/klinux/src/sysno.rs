@@ -31,6 +31,16 @@ pub const MADVISE: u64 = 28;
 pub const DUP: u64 = 32;
 pub const DUP2: u64 = 33;
 pub const GETPID: u64 = 39;
+// ---- 网络（M12）----
+pub const SOCKET: u64 = 41;
+pub const CONNECT: u64 = 42;
+pub const ACCEPT: u64 = 43;
+pub const SENDTO: u64 = 44;
+pub const RECVFROM: u64 = 45;
+pub const SETSOCKOPT: u64 = 54;
+pub const GETSOCKOPT: u64 = 55;
+pub const BIND: u64 = 49;
+pub const LISTEN: u64 = 50;
 pub const FORK: u64 = 57;
 pub const VFORK: u64 = 58;
 pub const EXECVE: u64 = 59;

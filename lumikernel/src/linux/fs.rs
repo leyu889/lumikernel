@@ -32,11 +32,28 @@ pub fn read(fdno: u64, uptr: u64, len: u64) -> i64 {
     // 先确认用户缓冲区可写，再真读：反过来的话，读到管道里的数据却没人接收，
     // 数据就永久丢了（M7 的注释里写过这一点）。
     if !uaccess::check_readable(uptr, want) || !uaccess::check_writable(uptr, want) {
+        // 限流诊断：懒分配上线后，"该成功却 EFAULT"的现场必须能看到
+        // 具体是哪一页、页表/VMA 各是什么状态。
+        {
+            use core::sync::atomic::{AtomicU32, Ordering};
+            static N: AtomicU32 = AtomicU32::new(0);
+            if N.fetch_add(1, Ordering::Relaxed) < 4 {
+                let pml4 = crate::mm::paging::read_cr3();
+                kserialln!(
+                    "[read] EFAULT uptr={:#x} len={} pte={:?} vma={:?}",
+                    uptr,
+                    want,
+                    crate::mm::paging::pte_of(pml4, uptr & !0xFFF),
+                    crate::task::vma_lookup(uptr & !0xFFF)
+                );
+            }
+        }
         return E::err(E::EFAULT);
     }
     let mut buf = vec![0u8; want];
     match fd::read(fdno as usize, &mut buf) {
-        Ok(n) => match uaccess::copy_out(uptr, &buf[..n]) {
+        // 入口处已整段验证过，这里不再重复查一遍（省一半页表遍历）
+        Ok(n) => match uaccess::unchecked_copy_out(uptr, &buf[..n]) {
             Ok(()) => n as i64,
             Err(e) => e,
         },
@@ -50,7 +67,7 @@ pub fn write(fdno: u64, uptr: u64, len: u64) -> i64 {
     }
     let want = core::cmp::min(len as usize, IO_CHUNK);
     let mut buf = vec![0u8; want];
-    if let Err(e) = uaccess::copy_in(uptr, &mut buf) {
+    if let Err(e) = uaccess::unchecked_copy_in(uptr, &mut buf) {
         return e;
     }
     match fd::write(fdno as usize, &buf) {

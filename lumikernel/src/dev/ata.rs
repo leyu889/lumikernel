@@ -401,6 +401,19 @@ pub fn slave_sectors() -> u64 {
 
 /// 读主盘一个 512 字节扇区。
 pub fn read_sector(lba: u32, out: &mut [u8; 512]) -> Result<(), &'static str> {
+    // **磁盘设备门**（与具体控制器无关）：IDE PIO 和 AHCI 都要先过这里。
+    // 之前只把门放在 `ahci::read_sector` 里，BIOS 路径走的是 PIO，
+    // 于是"控制器失联"的注入完全不生效——门必须挂在设备级，不是控制器级。
+    if !crate::dev::health::is_up(crate::dev::health::Driver::Disk) {
+        return Err("磁盘设备已降级");
+    }
+    if crate::qa::fault::deny(kqa::fault::Point::AhciDown) {
+        crate::dev::health::mark_down(
+            crate::dev::health::Driver::Disk,
+            "注入：磁盘设备失联",
+        );
+        return Err("故障注入：磁盘设备失联");
+    }
     if !present() {
         return Err("没有探测到 ATA 盘");
     }

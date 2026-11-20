@@ -231,6 +231,18 @@ def main():
     # 跨系统微基准（M11）：必须在 mkdisk 之前产出，镜像里才会有 /bin/bench
     build_bench()
 
+    # FAT 卷（M12 fat-for-kfat）：给 kfat 驱动做端到端验证。
+    # 用 hello.txt 的同样内容当文件，自检里读回来逐字节比对。
+    _fat_out = os.path.join(build, "fat.img")
+    _hello = os.path.join(HERE, "build", "hello-for-fat.txt")
+    with open(_hello, "wb") as _f:
+        _f.write(b"this line came from an ext2 file on disk.\n"
+                 b"second line: 0123456789 abcdefghij\n")
+    if subprocess.run([sys.executable, os.path.join(HERE, "tools", "mkfat.py"),
+                       "--output", _fat_out, "--mb", "8",
+                       "--file", "FAT.TXT=" + _hello]).returncode != 0:
+        print("[警告] mkfat 失败，FAT 自检会跳过")
+
     # 系统盘：用户程序 → ELF → ext2 镜像。跟内核一起出，避免"内核跑的是旧程序"。
     run([sys.executable, os.path.join("tools", "mkdisk.py"), "--out", build])
 

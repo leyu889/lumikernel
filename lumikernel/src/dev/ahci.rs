@@ -422,6 +422,8 @@ fn issue(s: &Slot, cmd: u8, lba: u64, count: u16, buf_phys: u64, write: bool) ->
         }
         n += 1;
         if n > SPIN_LIMIT {
+            // 命令超时是**设备级**故障：继续用它只会让每一次 I/O 都等满超时。
+            crate::dev::health::mark_down(crate::dev::health::Driver::Disk, "AHCI 命令超时");
             return Err("AHCI 命令超时");
         }
         core::hint::spin_loop();
@@ -480,6 +482,15 @@ pub fn flush(slot: usize) -> Result<(), ()> {
 
 /// 读一个 512 字节扇区（给沿用扇区接口的旧代码）。
 pub fn read_sector(slot: usize, lba: u32, out: &mut [u8; 512]) -> Result<(), &'static str> {
+    // 驱动健康门：控制器已经被判定失联时**立刻返回**，不再去碰 MMIO。
+    // 卡死的设备上"每次都等超时"会把一次坏的读放大成整机卡顿。
+    if !crate::dev::health::is_up(crate::dev::health::Driver::Disk) {
+        return Err("磁盘控制器已降级");
+    }
+    if crate::qa::fault::deny(kqa::fault::Point::AhciDown) {
+        crate::dev::health::mark_down(crate::dev::health::Driver::Disk, "注入：控制器失联");
+        return Err("故障注入：控制器失联");
+    }
     let s = get(slot).map_err(|_| "该槽位没有 AHCI 盘")?;
     let lba64 = lba as u64;
 

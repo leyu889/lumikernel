@@ -24,7 +24,7 @@ if ! "$VBM" showvminfo "$VM" >/dev/null 2>&1; then
   "$VBM" createvm --name "$VM" --ostype Other_64 --register >/dev/null
   "$VBM" modifyvm "$VM" --memory 512 --vram 16 --firmware bios \
       --boot1 dvd --boot2 none --boot3 none --boot4 none \
-      --audio none --nic1 none --usb off \
+      --audio none --nic1 nat --nictype1 virtio --cableconnected1 on --macaddress1 525400123456 --usb off \
       --triple-fault-reset on --largepages off --nested-paging off \
       --uart1 0x3F8 4 --uartmode1 file "$SER" >/dev/null
   "$VBM" storagectl "$VM" --name IDE --add ide --controller PIIX4 >/dev/null

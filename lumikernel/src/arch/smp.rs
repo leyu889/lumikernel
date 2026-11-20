@@ -355,16 +355,19 @@ pub extern "C" fn ap_entry() -> ! {
         core::arch::asm!("sti", options(nomem, nostack, preserves_flags));
     }
     loop {
-        // BSP 打开窗口时全速干活——这是"多个核真的在同时执行"的直接证据，
-        // 而不是"多个核都连上了"的间接推断。
+        // BSP 打开窗口时全速干活——这是"多个核真的在同时执行"的直接证据
         if let Some(i) = idx {
             while AP_BUSY.load(Ordering::Acquire) {
                 WORK[i].0.fetch_add(1, Ordering::Relaxed);
             }
         }
-        // SAFETY: hlt 是特权指令，等下一个中断（定时器或 IPI）把它叫醒。
+        // SAFETY: hlt 等下一个中断（定时器或 IPI）。
         unsafe {
             core::arch::asm!("hlt", options(nomem, nostack, preserves_flags));
         }
     }
 }
+
+// `task::ap_scheduler_start`（AP 跑真调度循环）已实现但**未启用**：
+// 8 核并发时在 execve 密集路径静默卡死，并发点不止一处（每核 TSS/GDT、
+// TASKS 表跨核访问）。等 per-CPU TSS 完成后按核打开。

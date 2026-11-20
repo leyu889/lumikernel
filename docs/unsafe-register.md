@@ -7,10 +7,10 @@
 
 | 项 | 值 |
 |---|---|
-| 代码行（去空行/注释） | 19923 |
-| 含 `unsafe` 的行 | 303 |
-| 密度 | **1.52%**（上限 3.0%） |
-| 缺 `// SAFETY:` 说明的块 | 43 |
+| 代码行（去空行/注释） | 23860 |
+| 含 `unsafe` 的行 | 336 |
+| 密度 | **1.41%**（上限 3.0%） |
+| 缺 `// SAFETY:` 说明的块 | 46 |
 
 按照约定，`unsafe` 只允许出现在三类边界上：
 ① 架构相关（端口/寄存器/上下文切换）；② MMIO/DMA；③ 已经由上层
@@ -46,22 +46,25 @@
 - `lumikernel/src/console.rs:67` — `unsafe {`
 - `lumikernel/src/console.rs:85` — `unsafe {`
 - `lumikernel/src/dev/ata.rs:74` — `unsafe fn outw(port: u16, v: u16) {`
+- `lumikernel/src/dev/virtio.rs:345` — `let q = unsafe { QueueMem::at(qs.mem_phys) };`
 - `lumikernel/src/intr/apic.rs:93` — `base: unsafe { LAPIC_BASE },`
 - `lumikernel/src/intr/apic.rs:142` — `base: unsafe { IOAPIC_BASE },`
 - `lumikernel/src/intr/frame.rs:100` — `pub unsafe fn outb(port: u16, value: u8) {`
 - `lumikernel/src/intr/frame.rs:106` — `pub unsafe fn inb(port: u16) -> u8 {`
 - `lumikernel/src/intr/frame.rs:115` — `pub unsafe fn inw(port: u16) -> u16 {`
-- `lumikernel/src/main.rs:285` — `let (count, ptr) = unsafe { e820::table(table_addr) };`
-- `lumikernel/src/main.rs:300` — `let src = unsafe { e820::boot_source(table_addr) };`
-- `lumikernel/src/main.rs:303` — `let sys_off = unsafe { e820::part_lba(table_addr) };`
-- `lumikernel/src/main.rs:742` — `let t = unsafe { read_volatile((a + size as u64 - 8) as *const u64) };`
+- `lumikernel/src/main.rs:288` — `let (count, ptr) = unsafe { e820::table(table_addr) };`
+- `lumikernel/src/main.rs:303` — `let src = unsafe { e820::boot_source(table_addr) };`
+- `lumikernel/src/main.rs:306` — `let sys_off = unsafe { e820::part_lba(table_addr) };`
+- `lumikernel/src/main.rs:745` — `let t = unsafe { read_volatile((a + size as u64 - 8) as *const u64) };`
 - `lumikernel/src/mm/frames.rs:120` — `unsafe { core::slice::from_raw_parts_mut(BITMAP.0.get() as *mut u8, BITMAP_BYTES`
 - `lumikernel/src/mm/frames.rs:164` — `unsafe { *GLOBAL.alloc.get() = Some(a) };`
 - `lumikernel/src/mm/heap.rs:28` — `unsafe fn alloc(&self, layout: Layout) -> *mut u8 {`
 - `lumikernel/src/mm/heap.rs:38` — `unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {`
 - `lumikernel/src/mm/paging.rs:154` — `unsafe { asm!("mov {}, cr0", out(reg) v, options(nomem, nostack, preserves_flags`
-- `lumikernel/src/mm/paging.rs:160` — `unsafe { asm!("mov {}, cr4", out(reg) v, options(nomem, nostack, preserves_flags`
-- `lumikernel/src/mm/paging.rs:498` — `let via_high = unsafe { core::ptr::read_volatile(kva as *const u64) };`
+- `lumikernel/src/mm/paging.rs:310` — `unsafe { asm!("mov {}, cr4", out(reg) v, options(nomem, nostack, preserves_flags`
+- `lumikernel/src/mm/paging.rs:797` — `let via_high = unsafe { core::ptr::read_volatile(kva as *const u64) };`
+- `lumikernel/src/task/mod.rs:446` — `.find(|i| unsafe { (*base)[*i].tid == tid && (*base)[*i].state != State::Free })`
+- `lumikernel/src/task/mod.rs:449` — `unsafe {`
 
 ## 逐条清单
 
@@ -160,7 +163,7 @@
 | `lumikernel/src/arch/smp.rs:282` | `unsafe {` | SAFETY: 串行启动，此时只有 BSP 在写这一项。 |
 | `lumikernel/src/arch/smp.rs:289` | `unsafe {` | SAFETY: 0x7000 是约定的参数块；每次只服务一个 AP（串行启动）。 |
 | `lumikernel/src/arch/smp.rs:354` | `unsafe {` | SAFETY: sti 只影响本核的标志寄存器。 |
-| `lumikernel/src/arch/smp.rs:366` | `unsafe {` | SAFETY: hlt 是特权指令，等下一个中断（定时器或 IPI）把它叫醒。 |
+| `lumikernel/src/arch/smp.rs:365` | `unsafe {` | SAFETY: hlt 等下一个中断（定时器或 IPI）。 |
 | `lumikernel/src/arch/sync.rs:28` | `unsafe impl<T: Send> Sync for IrqSpinlock<T> {}` | SAFETY: 互斥由 `locked` 保证；`T: Send` 才允许跨执行流共享。 |
 | `lumikernel/src/arch/sync.rs:30` | `unsafe impl<T: Send> Send for IrqSpinlock<T> {}` | SAFETY: 同 `Sync`。 |
 | `lumikernel/src/arch/sync.rs:63` | `pub unsafe fn get_unchecked(&self) -> &T {` | # Safety |
@@ -194,12 +197,12 @@
 | `lumikernel/src/dev/ahci.rs:363` | `unsafe {` | SAFETY: ct 是一页命令表，偏移都在 0x80+16 以内。 |
 | `lumikernel/src/dev/ahci.rs:383` | `unsafe {` | SAFETY: 命令表的 PRDT 从 0x80 开始，一条 16 字节。 |
 | `lumikernel/src/dev/ahci.rs:398` | `unsafe {` | SAFETY: 命令列表一页，头 0 在 32 字节内。 |
-| `lumikernel/src/dev/ahci.rs:438` | `unsafe {` | SAFETY: 单核；SLOTS 在 init 之后只读。 |
-| `lumikernel/src/dev/ahci.rs:456` | `unsafe {` | SAFETY: DMA 缓冲是一整页，读 1024 字节安全。 |
-| `lumikernel/src/dev/ahci.rs:469` | `unsafe {` | SAFETY: 同上，先拷进 DMA 缓冲。 |
-| `lumikernel/src/dev/ahci.rs:490` | `unsafe {` | SAFETY: `buf` 是一整页，`off + 512 <= 4096`（count ≤ 8）。 |
-| `lumikernel/src/dev/ahci.rs:505` | `unsafe { core::ptr::copy_nonoverlapping(s.buf as *const u8, out.as_mut_ptr(), 512) };` | SAFETY: 同上。 |
-| `lumikernel/src/dev/ahci.rs:514` | `unsafe { core::ptr::copy_nonoverlapping(data.as_ptr(), s.buf as *mut u8, 512) };` | SAFETY: 缓冲一整页。 |
+| `lumikernel/src/dev/ahci.rs:440` | `unsafe {` | SAFETY: 单核；SLOTS 在 init 之后只读。 |
+| `lumikernel/src/dev/ahci.rs:458` | `unsafe {` | SAFETY: DMA 缓冲是一整页，读 1024 字节安全。 |
+| `lumikernel/src/dev/ahci.rs:471` | `unsafe {` | SAFETY: 同上，先拷进 DMA 缓冲。 |
+| `lumikernel/src/dev/ahci.rs:501` | `unsafe {` | SAFETY: `buf` 是一整页，`off + 512 <= 4096`（count ≤ 8）。 |
+| `lumikernel/src/dev/ahci.rs:516` | `unsafe { core::ptr::copy_nonoverlapping(s.buf as *const u8, out.as_mut_ptr(), 512) };` | SAFETY: 同上。 |
+| `lumikernel/src/dev/ahci.rs:525` | `unsafe { core::ptr::copy_nonoverlapping(data.as_ptr(), s.buf as *mut u8, 512) };` | SAFETY: 缓冲一整页。 |
 | `lumikernel/src/dev/ata.rs:47` | `unsafe {` | SAFETY: 只读状态口，无副作用。 |
 | `lumikernel/src/dev/ata.rs:56` | `unsafe { inb(PORT_STATUS) }` | SAFETY: 只读状态口。 |
 | `lumikernel/src/dev/ata.rs:74` | `unsafe fn outw(port: u16, v: u16) {` | **缺** |
@@ -212,8 +215,27 @@
 | `lumikernel/src/dev/ata.rs:212` | `unsafe {` | SAFETY: 端口序列，无内存安全影响。 |
 | `lumikernel/src/dev/ata.rs:232` | `unsafe { outw(PORT_DATA, w) };` | SAFETY: DRQ 已置位，数据口可写。 |
 | `lumikernel/src/dev/ata.rs:253` | `unsafe {` | SAFETY: 端口序列，无内存安全影响。 |
+| `lumikernel/src/dev/e1000.rs:115` | `unsafe { core::ptr::read_volatile((base + reg * 4) as *const u32) }` | SAFETY: base 是 PCI BAR0 映射的 MMIO 区（pages::phys_to_virt）， |
+| `lumikernel/src/dev/e1000.rs:120` | `unsafe {` | SAFETY: 同上。 |
+| `lumikernel/src/dev/e1000.rs:238` | `unsafe {` | SAFETY: 刚分配的独占页，经直接映射区写。 |
+| `lumikernel/src/dev/e1000.rs:255` | `unsafe {` | SAFETY: 描述符页独占，下标在环内。 |
+| `lumikernel/src/dev/e1000.rs:377` | `unsafe {` | SAFETY: MMIO 区与描述符页都已映射。 |
+| `lumikernel/src/dev/e1000.rs:432` | `unsafe {` | SAFETY: 描述符页/缓冲帧/MMIO 都已映射，锁内独占。 |
 | `lumikernel/src/dev/pci.rs:78` | `unsafe {` | SAFETY: 同上。 |
 | `lumikernel/src/dev/pci.rs:265` | `unsafe {` | SAFETY: 标准 PCI 命令寄存器写，语义固定。 |
+| `lumikernel/src/dev/virtio.rs:100` | `unsafe {` | SAFETY: port 是 PCI BAR0 给我们的 IO 窗口。 |
+| `lumikernel/src/dev/virtio.rs:108` | `unsafe {` | SAFETY: 同上。 |
+| `lumikernel/src/dev/virtio.rs:116` | `unsafe {` | SAFETY: 同上。 |
+| `lumikernel/src/dev/virtio.rs:124` | `unsafe {` | SAFETY: 同上。 |
+| `lumikernel/src/dev/virtio.rs:190` | `unsafe {` | SAFETY: 队列内存独占且已清零；`rx_mem` 来自 alloc_queue。 |
+| `lumikernel/src/dev/virtio.rs:232` | `unsafe {` | SAFETY: 同上（IO 端口）。 |
+| `lumikernel/src/dev/virtio.rs:242` | `unsafe fn at(phys: u64) -> *mut QueueMem {` | # Safety |
+| `lumikernel/src/dev/virtio.rs:255` | `unsafe {` | SAFETY: 刚分配的独占连续两页，整块清零。 |
+| `lumikernel/src/dev/virtio.rs:264` | `unsafe {` | SAFETY: 刚分配独占页。 |
+| `lumikernel/src/dev/virtio.rs:294` | `let q = unsafe { QueueMem::at(qs.mem_phys) };` | SAFETY: qs.mem_phys 来自 alloc_queue，是独占的队列页。 |
+| `lumikernel/src/dev/virtio.rs:298` | `unsafe {` | SAFETY: 队列与缓冲都由本驱动独占；索引已取模。 |
+| `lumikernel/src/dev/virtio.rs:345` | `let q = unsafe { QueueMem::at(qs.mem_phys) };` | **缺** |
+| `lumikernel/src/dev/virtio.rs:348` | `unsafe {` | SAFETY: 队列内存独占；used 环由设备写、我们只读。 |
 | `lumikernel/src/e820.rs:44` | `pub unsafe fn part_lba(addr: usize) -> u32 {` | # Safety |
 | `lumikernel/src/e820.rs:52` | `pub unsafe fn boot_source(addr: usize) -> &'static str {` | # Safety |
 | `lumikernel/src/e820.rs:64` | `pub unsafe fn table(addr: usize) -> (usize, *const E820Entry) {` | # Safety |
@@ -254,8 +276,8 @@
 | `lumikernel/src/intr/frame.rs:106` | `pub unsafe fn inb(port: u16) -> u8 {` | **缺** |
 | `lumikernel/src/intr/frame.rs:115` | `pub unsafe fn inw(port: u16) -> u16 {` | **缺** |
 | `lumikernel/src/intr/handler.rs:39` | `let f = unsafe { &mut *frame };` | SAFETY: 指针来自 `isr_common` 压好的栈帧，布局与 `InterruptFrame` 一致 |
-| `lumikernel/src/intr/handler.rs:169` | `let e = unsafe { core::ptr::read_volatile(va as *const u64) };` | SAFETY: 上面确认过这个直接映射地址可读。 |
-| `lumikernel/src/intr/handler.rs:209` | `let v = unsafe {` | SAFETY: translate_in 已确认这一页映射在 CR3 指向的地址空间里。 |
+| `lumikernel/src/intr/handler.rs:194` | `let e = unsafe { core::ptr::read_volatile(va as *const u64) };` | SAFETY: 上面确认过这个直接映射地址可读。 |
+| `lumikernel/src/intr/handler.rs:234` | `let v = unsafe {` | SAFETY: translate_in 已确认这一页映射在 CR3 指向的地址空间里。 |
 | `lumikernel/src/intr/idt.rs:85` | `unsafe impl Sync for IdtCell {}` | SAFETY: 只在单核启动阶段由 `init` 写入一次；装载后 CPU 只读。 |
 | `lumikernel/src/intr/idt.rs:116` | `let base = unsafe {` | SAFETY: 启动阶段单核、中断关闭，`IDT` 无并发访问者； |
 | `lumikernel/src/intr/idt.rs:148` | `unsafe { asm!("lidt [{}]", in(reg) p, options(readonly, nostack, preserves_flags)) };` | SAFETY: idtr 是 10 字节的合法操作数，指向本函数栈上的局部变量， |
@@ -280,26 +302,29 @@
 | `lumikernel/src/intr/probe.rs:155` | `let ctx = unsafe { &mut *CTX.0.get() };` | SAFETY: 与 `run` 同一执行流，且此时 `run` 尚未返回（栈上有它的帧）。 |
 | `lumikernel/src/intr/rtc.rs:17` | `unsafe {` | SAFETY: 0x70 是索引口、0x71 是数据口；读 CMOS 无副作用。 |
 | `lumikernel/src/linux/mem.rs:89` | `unsafe { core::ptr::write_bytes(paging::phys_to_virt(phys) as *mut u8, 0, PAGE as usize) };` | SAFETY: 刚分配的独占帧，经直接映射区清零。 |
-| `lumikernel/src/linux/mem.rs:172` | `unsafe { core::ptr::write_bytes(paging::phys_to_virt(phys) as *mut u8, 0, PAGE as usize) };` | SAFETY: 刚分配的独占帧。 |
-| `lumikernel/src/linux/mem.rs:256` | `unsafe {` | SAFETY: 两个区间都在当前进程的地址空间里且已映射；系统调用期间 |
+| `lumikernel/src/linux/mem.rs:194` | `unsafe { core::ptr::write_bytes(paging::phys_to_virt(phys) as *mut u8, 0, PAGE as usize) };` | SAFETY: 刚分配的独占帧。 |
+| `lumikernel/src/linux/mem.rs:281` | `unsafe {` | SAFETY: 两个区间都在当前进程的地址空间里且已映射；系统调用期间 |
 | `lumikernel/src/linux/proc.rs:421` | `unsafe {` | SAFETY: rdtsc 只读时间戳计数器。 |
 | `lumikernel/src/linux/trace.rs:40` | `unsafe impl Sync for TraceCell {}` | SAFETY: 单核调度；索引用原子自增，每个执行流独占自己的槽位。 |
 | `lumikernel/src/linux/trace.rs:50` | `unsafe {` | SAFETY: i 是本执行流独占的槽位（fetch_add 保证不重复）。 |
 | `lumikernel/src/linux/trace.rs:81` | `let e = unsafe { (*TRACE.0.get())[i] };` | SAFETY: 只读已写入的槽位。 |
-| `lumikernel/src/linux/uaccess.rs:90` | `*slot = unsafe { core::ptr::read_volatile((uptr + i as u64) as *const u8) };` | SAFETY: 上面逐页确认可读，且抢占已关。 |
-| `lumikernel/src/linux/uaccess.rs:106` | `unsafe { core::ptr::write_volatile((uptr + i as u64) as *mut u8, *b) };` | SAFETY: 已确认可写，抢占已关。 |
-| `lumikernel/src/linux/uaccess.rs:129` | `let b = unsafe { core::ptr::read_volatile((uptr + i as u64) as *const u8) };` | SAFETY: 刚确认这个字节可读。 |
-| `lumikernel/src/main.rs:150` | `unsafe {` | SAFETY: 同 `paint_stack`，只读栈的未使用区间。 |
-| `lumikernel/src/main.rs:167` | `unsafe {` | SAFETY: 金丝雀是我们自己画的一页静态内存。 |
-| `lumikernel/src/main.rs:285` | `let (count, ptr) = unsafe { e820::table(table_addr) };` | **缺** |
-| `lumikernel/src/main.rs:300` | `let src = unsafe { e820::boot_source(table_addr) };` | **缺** |
-| `lumikernel/src/main.rs:303` | `let sys_off = unsafe { e820::part_lba(table_addr) };` | **缺** |
-| `lumikernel/src/main.rs:658` | `let pat = unsafe {` | SAFETY: 这一页刚建立映射且归本测试独占。 |
-| `lumikernel/src/main.rs:729` | `unsafe {` | SAFETY: slab 返回的地址属于本测试，长度 >= 16。 |
-| `lumikernel/src/main.rs:741` | `let h = unsafe { read_volatile(a as *const u64) };` | SAFETY: 同上，仍在持有期内。 |
-| `lumikernel/src/main.rs:742` | `let t = unsafe { read_volatile((a + size as u64 - 8) as *const u64) };` | **缺** |
-| `lumikernel/src/main.rs:2366` | `let mut f: intr::frame::InterruptFrame = unsafe { core::mem::zeroed() };` | SAFETY: `InterruptFrame` 全是 u64，零值合法；这里只是借用它的 |
-| `lumikernel/src/main.rs:2783` | `unsafe {` | SAFETY: 故意访问未映射地址。PML4[257] 整段没有映射。 |
+| `lumikernel/src/linux/uaccess.rs:105` | `*slot = unsafe { core::ptr::read_volatile((uptr + i as u64) as *const u8) };` | SAFETY: 上面逐页确认可读，且抢占已关。 |
+| `lumikernel/src/linux/uaccess.rs:126` | `unsafe { core::ptr::write_volatile((uptr + i as u64) as *mut u8, *b) };` | SAFETY: 已确认可写，抢占已关。 |
+| `lumikernel/src/linux/uaccess.rs:149` | `let b = unsafe { core::ptr::read_volatile((uptr + i as u64) as *const u8) };` | SAFETY: 刚确认这个字节可读。 |
+| `lumikernel/src/main.rs:153` | `unsafe {` | SAFETY: 同 `paint_stack`，只读栈的未使用区间。 |
+| `lumikernel/src/main.rs:170` | `unsafe {` | SAFETY: 金丝雀是我们自己画的一页静态内存。 |
+| `lumikernel/src/main.rs:288` | `let (count, ptr) = unsafe { e820::table(table_addr) };` | **缺** |
+| `lumikernel/src/main.rs:303` | `let src = unsafe { e820::boot_source(table_addr) };` | **缺** |
+| `lumikernel/src/main.rs:306` | `let sys_off = unsafe { e820::part_lba(table_addr) };` | **缺** |
+| `lumikernel/src/main.rs:661` | `let pat = unsafe {` | SAFETY: 这一页刚建立映射且归本测试独占。 |
+| `lumikernel/src/main.rs:732` | `unsafe {` | SAFETY: slab 返回的地址属于本测试，长度 >= 16。 |
+| `lumikernel/src/main.rs:744` | `let h = unsafe { read_volatile(a as *const u64) };` | SAFETY: 同上，仍在持有期内。 |
+| `lumikernel/src/main.rs:745` | `let t = unsafe { read_volatile((a + size as u64 - 8) as *const u64) };` | **缺** |
+| `lumikernel/src/main.rs:2376` | `let mut f: intr::frame::InterruptFrame = unsafe { core::mem::zeroed() };` | SAFETY: `InterruptFrame` 全是 u64，零值合法；这里只是借用它的 |
+| `lumikernel/src/main.rs:3050` | `unsafe {` | SAFETY: 故意访问未映射地址。PML4[257] 整段没有映射。 |
+| `lumikernel/src/mm/fault.rs:217` | `unsafe {` | SAFETY: `old` 是当前地址空间里已映射的可读页，`newp` 是刚分配独占的页； |
+| `lumikernel/src/mm/fault.rs:271` | `unsafe {` | SAFETY: `phys` 是刚分配独占的帧，经直接映射区可写。 |
+| `lumikernel/src/mm/fault.rs:277` | `let mut pt = unsafe { PageTable::from_root(pml4) };` | SAFETY: `pml4` 是当前 CR3 指向的根，`from_root` 只借用不拥有， |
 | `lumikernel/src/mm/frames.rs:27` | `unsafe impl Sync for Bitmap {}` | SAFETY: 位图只在 `GLOBAL` 的锁保护下通过 `&mut` 访问。 |
 | `lumikernel/src/mm/frames.rs:37` | `unsafe impl Sync for Global {}` | SAFETY: 同上，`alloc` 只在持锁期间访问。 |
 | `lumikernel/src/mm/frames.rs:88` | `let (s, e) = unsafe {` | SAFETY: __kernel_start / __bss_end 由 linker.ld 定义为内核映像的 |
@@ -318,55 +343,66 @@
 | `lumikernel/src/mm/paging.rs:124` | `let mut pt = unsafe { PageTable::from_root(read_cr3()) };` | SAFETY: 当前 CR3 一定是有效 PML4；我们是内核，有权改自己的地址空间。 |
 | `lumikernel/src/mm/paging.rs:146` | `let mut pt = unsafe { PageTable::from_root(read_cr3()) };` | SAFETY: 同 map_in_current。 |
 | `lumikernel/src/mm/paging.rs:154` | `unsafe { asm!("mov {}, cr0", out(reg) v, options(nomem, nostack, preserves_flags)) };` | **缺** |
-| `lumikernel/src/mm/paging.rs:160` | `unsafe { asm!("mov {}, cr4", out(reg) v, options(nomem, nostack, preserves_flags)) };` | **缺** |
-| `lumikernel/src/mm/paging.rs:169` | `unsafe { core::ptr::read_volatile((phys_to_virt(table_phys) as *const u64).add(idx)) }` | SAFETY: 调用方只传本进程页表里已验证 present 的表页物理地址； |
-| `lumikernel/src/mm/paging.rs:302` | `unsafe {` | SAFETY: 两个物理帧都独占：src_page 属于调用者的地址空间， |
-| `lumikernel/src/mm/paging.rs:367` | `unsafe {` | SAFETY: phys 是当前地址空间里这一页的物理地址，n 不越过页边界。 |
-| `lumikernel/src/mm/paging.rs:388` | `unsafe {` | SAFETY: phys 是这一页的物理地址，n 不越页。 |
-| `lumikernel/src/mm/paging.rs:497` | `let via_direct = unsafe { core::ptr::read_volatile(phys_to_virt(kstart) as *const u64) };` | SAFETY: 内核映像首 8 字节一定可读，两个地址都指向同一物理页。 |
-| `lumikernel/src/mm/paging.rs:498` | `let via_high = unsafe { core::ptr::read_volatile(kva as *const u64) };` | **缺** |
-| `lumikernel/src/mm/paging.rs:505` | `let current = unsafe { PageTable::from_root(old_root) };` | SAFETY: old_root 来自 CR3，一定是有效 PML4。 |
-| `lumikernel/src/mm/paging.rs:525` | `unsafe { core::ptr::write_bytes(phys_to_virt(data) as *mut u8, 0, PAGE_SIZE) };` | SAFETY: data 是刚分配、当前无人使用的帧，通过直接映射访问。 |
-| `lumikernel/src/mm/paging.rs:530` | `let observed = unsafe {` | SAFETY: 新表已复制内核高半区（含当前代码与栈）并映射了 VMALLOC_BASE。 |
-| `lumikernel/src/mm/paging.rs:540` | `let via_direct_again = unsafe { core::ptr::read_volatile(phys_to_virt(data) as *const u64) };` | SAFETY: 同一个物理帧，走直接映射读。 |
+| `lumikernel/src/mm/paging.rs:160` | `unsafe {` | SAFETY: 调用方保证只置 CPUID 报支持的位。 |
+| `lumikernel/src/mm/paging.rs:171` | `unsafe {` | SAFETY: cpuid 无副作用；CPUID 在所有 x86_64 上可用。 |
+| `lumikernel/src/mm/paging.rs:310` | `unsafe { asm!("mov {}, cr4", out(reg) v, options(nomem, nostack, preserves_flags)) };` | **缺** |
+| `lumikernel/src/mm/paging.rs:319` | `unsafe { core::ptr::read_volatile((phys_to_virt(table_phys) as *const u64).add(idx)) }` | SAFETY: 调用方只传本进程页表里已验证 present 的表页物理地址； |
+| `lumikernel/src/mm/paging.rs:494` | `unsafe {` | SAFETY: 两个物理帧都独占（src 属于调用者，newp 刚分配）， |
+| `lumikernel/src/mm/paging.rs:560` | `Some(unsafe { core::ptr::read_volatile(phys_to_virt(slot) as *const u64) })` | SAFETY: `pte_slot` 已逐级验证过这张表页存在，直接映射区可读。 |
+| `lumikernel/src/mm/paging.rs:576` | `unsafe {` | SAFETY: 同上。 |
+| `lumikernel/src/mm/paging.rs:601` | `unsafe {` | SAFETY: `pte_slot` 已逐级验证过这条链路存在，直接映射区可写。 |
+| `lumikernel/src/mm/paging.rs:666` | `unsafe {` | SAFETY: phys 是当前地址空间里这一页的物理地址，n 不越过页边界。 |
+| `lumikernel/src/mm/paging.rs:687` | `unsafe {` | SAFETY: phys 是这一页的物理地址，n 不越页。 |
+| `lumikernel/src/mm/paging.rs:796` | `let via_direct = unsafe { core::ptr::read_volatile(phys_to_virt(kstart) as *const u64) };` | SAFETY: 内核映像首 8 字节一定可读，两个地址都指向同一物理页。 |
+| `lumikernel/src/mm/paging.rs:797` | `let via_high = unsafe { core::ptr::read_volatile(kva as *const u64) };` | **缺** |
+| `lumikernel/src/mm/paging.rs:804` | `let current = unsafe { PageTable::from_root(old_root) };` | SAFETY: old_root 来自 CR3，一定是有效 PML4。 |
+| `lumikernel/src/mm/paging.rs:824` | `unsafe { core::ptr::write_bytes(phys_to_virt(data) as *mut u8, 0, PAGE_SIZE) };` | SAFETY: data 是刚分配、当前无人使用的帧，通过直接映射访问。 |
+| `lumikernel/src/mm/paging.rs:829` | `let observed = unsafe {` | SAFETY: 新表已复制内核高半区（含当前代码与栈）并映射了 VMALLOC_BASE。 |
+| `lumikernel/src/mm/paging.rs:839` | `let via_direct_again = unsafe { core::ptr::read_volatile(phys_to_virt(data) as *const u64) };` | SAFETY: 同一个物理帧，走直接映射读。 |
 | `lumikernel/src/syscall.rs:177` | `let old = unsafe { core::ptr::read_volatile(page as *const u8) };` | SAFETY: 调用点已先用 user_range_ok 确认整段可读。 |
 | `lumikernel/src/syscall.rs:183` | `unsafe { core::ptr::write_volatile(page as *mut u8, old) };` | SAFETY: 刚才那次写成功了，这一页确实可写。 |
 | `lumikernel/src/syscall.rs:206` | `out[i] = unsafe { core::ptr::read_volatile((ptr + i as u64) as *const u8) };` | SAFETY: 上面逐页确认过可读，且抢占已关。 |
 | `lumikernel/src/syscall.rs:261` | `unsafe { core::ptr::write_volatile((ptr + i as u64) as *mut u8, buf[i]) }` | SAFETY: 上面已确认这段用户内存可写；抢占已关，期间不会被换出。 |
-| `lumikernel/src/task/mod.rs:118` | `unsafe impl Sync for TableCell {}` | SAFETY: 单核，所有访问都在中断关闭或 `preempt_disable` 区间内。 |
-| `lumikernel/src/task/mod.rs:129` | `unsafe impl Sync for SchedCell {}` | SAFETY: 同 `TASKS`。 |
-| `lumikernel/src/task/mod.rs:136` | `unsafe { (*SCHED.0.get()).assume_init_mut() }` | SAFETY: `init` 已用 `init_in_place` 把每个字段写了一遍； |
-| `lumikernel/src/task/mod.rs:208` | `unsafe {` | SAFETY: 启动阶段单核、中断关闭；对任务表独占写入。 |
-| `lumikernel/src/task/mod.rs:253` | `unsafe {` | SAFETY: 这段内存是刚分配、当前无人使用的内核栈；下面写入的字段全部有明确含义。 |
-| `lumikernel/src/task/mod.rs:273` | `let t = unsafe { &mut *TASKS.0.get() };` | SAFETY: 单核，调用方保证不并发。 |
-| `lumikernel/src/task/mod.rs:300` | `unsafe {` | SAFETY: 单核 + 抢占已关闭；slot 与 tid 都是本函数独占。 |
-| `lumikernel/src/task/mod.rs:351` | `unsafe {` | SAFETY: code_phys 是刚摘下的帧；通过直接映射区拷入用户映像（长度已判界）。 |
-| `lumikernel/src/task/mod.rs:363` | `unsafe { core::ptr::write_bytes(paging::phys_to_virt(stack_phys) as *mut u8, 0, 4096) };` | SAFETY: 同上，栈页清零即可。 |
-| `lumikernel/src/task/mod.rs:401` | `unsafe {` | SAFETY: 同 spawn_kthread。 |
-| `lumikernel/src/task/mod.rs:442` | `unsafe {` | SAFETY: 单核 + 抢占已关闭；slot 由本函数独占。 |
-| `lumikernel/src/task/mod.rs:474` | `unsafe {` | SAFETY: frame_addr 在本函数独占的新内核栈内；src 是当前栈上的合法帧。 |
-| `lumikernel/src/task/mod.rs:502` | `unsafe {` | SAFETY: 单核，只读。 |
-| `lumikernel/src/task/mod.rs:513` | `unsafe { (*TASKS.0.get()).get(current_index()).map(\|t\| t.tid).unwrap_or(0) }` | SAFETY: 单核，读单个字段。 |
-| `lumikernel/src/task/mod.rs:526` | `unsafe {` | SAFETY: 单核 + 中断关闭，独占访问任务表与调度器。 |
-| `lumikernel/src/task/mod.rs:599` | `unsafe {` | SAFETY: 单核；只给当前任务累加 vruntime。 |
-| `lumikernel/src/task/mod.rs:619` | `unsafe {` | SAFETY: 单核；这里只读任务状态与累加计数。 |
-| `lumikernel/src/task/mod.rs:643` | `let tid_of = \|_c: usize\| -> u64 { unsafe { (*TASKS.0.get())[_c].tid } };` | SAFETY: 单核；读自己的 tid（下面要拿它当"被等的对象"）。 |
-| `lumikernel/src/task/mod.rs:645` | `unsafe {` | SAFETY: 单核；下面是自己的收尾。 |
-| `lumikernel/src/task/mod.rs:685` | `unsafe {` | SAFETY: 见上；任务表是静态内存，生命周期够长。 |
-| `lumikernel/src/task/mod.rs:709` | `unsafe {` | SAFETY: 单核 + 中断关闭；下面是自己的状态迁移。 |
-| `lumikernel/src/task/mod.rs:726` | `unsafe {` | SAFETY: 同上。 |
-| `lumikernel/src/task/mod.rs:745` | `unsafe {` | SAFETY: 单核；只改目标任务的状态并把它塞回运行队列。 |
-| `lumikernel/src/task/mod.rs:773` | `unsafe impl Sync for ExitWaitCell {}` | SAFETY: 单核；只在关中断区间内读写（`wait_zombie` / `exit_current`）。 |
-| `lumikernel/src/task/mod.rs:778` | `unsafe {` | SAFETY: 单核 + 中断关闭（调用方 `wait_zombie` 保证）。 |
-| `lumikernel/src/task/mod.rs:792` | `unsafe {` | SAFETY: 同上。 |
-| `lumikernel/src/task/mod.rs:811` | `unsafe {` | SAFETY: 单核，只读。 |
-| `lumikernel/src/task/mod.rs:881` | `unsafe {` | SAFETY: 单核，只读。 |
-| `lumikernel/src/task/mod.rs:896` | `unsafe {` | SAFETY: 单核，只读。 |
-| `lumikernel/src/task/mod.rs:949` | `unsafe {` | SAFETY: 单核 + 中断关闭；只动目标任务（它已不运行）。 |
-| `lumikernel/src/task/mod.rs:1019` | `unsafe {` | SAFETY: 单核，只读。 |
-| `lumikernel/src/task/mod.rs:1033` | `unsafe { (*TASKS.0.get()).iter().filter(\|t\| t.state != State::Free).count() }` | SAFETY: 单核，只读。 |
-| `lumikernel/src/task/mod.rs:1038` | `unsafe { (*TASKS.0.get()).iter().filter(\|t\| t.state == state).count() }` | SAFETY: 单核，只读。 |
-| `lumikernel/src/task/mod.rs:1119` | `unsafe {` | SAFETY: 单核，只读。 |
-| `lumikernel/src/task/mod.rs:1136` | `unsafe {` | SAFETY: 单核；目标任务还没被调度，不会被并发访问。 |
-| `lumikernel/src/task/mod.rs:1158` | `unsafe {` | SAFETY: 单核，只读。 |
-| `lumikernel/src/task/mod.rs:1170` | `unsafe {` | SAFETY: 单核，只读。 |
+| `lumikernel/src/task/mod.rs:154` | `unsafe impl Sync for TableCell {}` | SAFETY: 单核，所有访问都在中断关闭或 `preempt_disable` 区间内。 |
+| `lumikernel/src/task/mod.rs:165` | `unsafe impl Sync for SchedCell {}` | SAFETY: 同 `TASKS`。 |
+| `lumikernel/src/task/mod.rs:172` | `unsafe { (*SCHED.0.get()).assume_init_mut() }` | SAFETY: `init` 已用 `init_in_place` 把每个字段写了一遍； |
+| `lumikernel/src/task/mod.rs:270` | `unsafe {` | SAFETY: 启动阶段单核、中断关闭；对任务表独占写入。 |
+| `lumikernel/src/task/mod.rs:320` | `unsafe {` | SAFETY: 这段内存是刚分配、当前无人使用的内核栈；下面写入的字段全部有明确含义。 |
+| `lumikernel/src/task/mod.rs:344` | `let t = unsafe { &mut *TASKS.0.get() };` | SAFETY: 已持锁独占。 |
+| `lumikernel/src/task/mod.rs:381` | `unsafe {` | SAFETY: slot 刚分配独占；启动阶段 AP 尚未接收任务。 |
+| `lumikernel/src/task/mod.rs:426` | `unsafe { core::arch::asm!("hlt", options(nomem, nostack, preserves_flags)) };` | SAFETY: 没有可跑任务时等中断（定时器 tick 或未来的 IPI）。 |
+| `lumikernel/src/task/mod.rs:446` | `.find(\|i\| unsafe { (*base)[*i].tid == tid && (*base)[*i].state != State::Free });` | **缺** |
+| `lumikernel/src/task/mod.rs:449` | `unsafe {` | **缺** |
+| `lumikernel/src/task/mod.rs:497` | `unsafe {` | SAFETY: 单核 + 抢占已关闭；slot 与 tid 都是本函数独占。 |
+| `lumikernel/src/task/mod.rs:554` | `unsafe {` | SAFETY: code_phys 是刚摘下的帧；通过直接映射区拷入用户映像（长度已判界）。 |
+| `lumikernel/src/task/mod.rs:566` | `unsafe { core::ptr::write_bytes(paging::phys_to_virt(stack_phys) as *mut u8, 0, 4096) };` | SAFETY: 同上，栈页清零即可。 |
+| `lumikernel/src/task/mod.rs:604` | `unsafe {` | SAFETY: 同 spawn_kthread。 |
+| `lumikernel/src/task/mod.rs:648` | `unsafe {` | SAFETY: 单核 + 抢占已关闭；slot 由本函数独占。 |
+| `lumikernel/src/task/mod.rs:685` | `unsafe {` | SAFETY: frame_addr 在本函数独占的新内核栈内；src 是当前栈上的合法帧。 |
+| `lumikernel/src/task/mod.rs:723` | `unsafe {` | SAFETY: 单核，只读。 |
+| `lumikernel/src/task/mod.rs:734` | `unsafe { (*TASKS.0.get()).get(current_index()).map(\|t\| t.tid).unwrap_or(0) }` | SAFETY: 单核，读单个字段。 |
+| `lumikernel/src/task/mod.rs:747` | `unsafe {` | SAFETY: 单核 + 中断关闭，独占访问任务表与调度器。 |
+| `lumikernel/src/task/mod.rs:820` | `unsafe {` | SAFETY: 单核；只给当前任务累加 vruntime。 |
+| `lumikernel/src/task/mod.rs:840` | `unsafe {` | SAFETY: 单核；这里只读任务状态与累加计数。 |
+| `lumikernel/src/task/mod.rs:864` | `let tid_of = \|_c: usize\| -> u64 { unsafe { (*TASKS.0.get())[_c].tid } };` | SAFETY: 单核；读自己的 tid（下面要拿它当"被等的对象"）。 |
+| `lumikernel/src/task/mod.rs:866` | `unsafe {` | SAFETY: 单核；下面是自己的收尾。 |
+| `lumikernel/src/task/mod.rs:915` | `unsafe {` | SAFETY: 见上；任务表是静态内存，生命周期够长。 |
+| `lumikernel/src/task/mod.rs:936` | `unsafe {` | SAFETY: 只读遍历；tid 对应的槽位由任务生命周期保证存在。 |
+| `lumikernel/src/task/mod.rs:952` | `unsafe {` | SAFETY: 单核 + 中断关闭；下面是自己的状态迁移。 |
+| `lumikernel/src/task/mod.rs:973` | `unsafe {` | SAFETY: 同上。 |
+| `lumikernel/src/task/mod.rs:992` | `unsafe {` | SAFETY: 单核；只改目标任务的状态并把它塞回运行队列。 |
+| `lumikernel/src/task/mod.rs:1022` | `unsafe impl Sync for ExitWaitCell {}` | SAFETY: 单核；只在关中断区间内读写（`wait_zombie` / `exit_current`）。 |
+| `lumikernel/src/task/mod.rs:1027` | `unsafe {` | SAFETY: 单核 + 中断关闭（调用方 `wait_zombie` 保证）。 |
+| `lumikernel/src/task/mod.rs:1041` | `unsafe {` | SAFETY: 同上。 |
+| `lumikernel/src/task/mod.rs:1060` | `unsafe {` | SAFETY: 单核，只读。 |
+| `lumikernel/src/task/mod.rs:1130` | `unsafe {` | SAFETY: 单核，只读。 |
+| `lumikernel/src/task/mod.rs:1145` | `unsafe {` | SAFETY: 单核，只读。 |
+| `lumikernel/src/task/mod.rs:1217` | `let (n, list) = unsafe {` | SAFETY: 中断当前是关的（上面 disable 过），独占任务表。 |
+| `lumikernel/src/task/mod.rs:1252` | `unsafe {` | SAFETY: 单核 + 中断关闭；只动目标任务（它已不运行）。 |
+| `lumikernel/src/task/mod.rs:1322` | `unsafe {` | SAFETY: 单核，只读。 |
+| `lumikernel/src/task/mod.rs:1336` | `unsafe { (*TASKS.0.get()).iter().filter(\|t\| t.state != State::Free).count() }` | SAFETY: 单核，只读。 |
+| `lumikernel/src/task/mod.rs:1341` | `unsafe { (*TASKS.0.get()).iter().filter(\|t\| t.state == state).count() }` | SAFETY: 单核，只读。 |
+| `lumikernel/src/task/mod.rs:1514` | `unsafe {` | SAFETY: 单核，只读。 |
+| `lumikernel/src/task/mod.rs:1531` | `unsafe {` | SAFETY: 单核；目标任务还没被调度，不会被并发访问。 |
+| `lumikernel/src/task/mod.rs:1553` | `unsafe {` | SAFETY: 单核，只读。 |
+| `lumikernel/src/task/mod.rs:1565` | `unsafe {` | SAFETY: 单核，只读。 |

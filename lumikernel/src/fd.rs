@@ -52,6 +52,10 @@ pub enum Kind {
     Dir,
     DevNull,
     DevZero,
+    /// UDP socket：`id` 低 28 位是 `net` 表下标。
+    SocketUdp,
+    /// TCP socket：同上。
+    SocketTcp,
 }
 
 #[derive(Clone, Copy)]
@@ -109,6 +113,29 @@ fn with_table<R>(f: impl FnOnce(&mut [File; MAX_FD]) -> R) -> R {
 
 fn find_free(t: &[File; MAX_FD], from: usize) -> Option<usize> {
     (from..MAX_FD).find(|&i| t[i].kind == Kind::Free)
+}
+
+/// 装 socket 的 fd（`linux/net` 用）。
+///
+/// `kind`: 1=UDP，2=TCP（`linux/net` 的 SOCK_* 值）。
+pub fn alloc_socket_fd(kind: u8, id: usize) -> Option<usize> {
+    let k = match kind {
+        1 => Kind::SocketUdp,
+        2 => Kind::SocketTcp,
+        _ => return None,
+    };
+    with_table(|t| {
+        let slot = find_free(t, FIRST_FREE_FD)?;
+        t[slot] = File {
+            kind: k,
+            id: id as u32,
+            size: 0,
+            off: 0,
+            mode: 0,
+            flags: 0,
+        };
+        Some(slot)
+    })
 }
 
 /// 取某个 fd 的快照。
@@ -262,6 +289,9 @@ pub fn read(fd: usize, out: &mut [u8]) -> Result<usize, i64> {
             update(fd, f.id, f.off.saturating_add(got as u32), f.size);
             Ok(got)
         }
+        // socket 只能走 sendto/recvfrom（它们管阻塞与地址语义）；
+        // fd 层的 read/write 不认识 socket，明确拒绝比静默错好。
+        Kind::SocketUdp | Kind::SocketTcp => Err(E::err(E::EINVAL)),
     }
 }
 
@@ -293,6 +323,7 @@ pub fn write(fd: usize, data: &[u8]) -> Result<usize, i64> {
         Kind::PipeRead => Err(EBADF),
         Kind::Dir => Err(E::err(E::EISDIR)),
         Kind::DevNull | Kind::DevZero => Ok(data.len()),
+        Kind::SocketUdp | Kind::SocketTcp => Err(E::err(E::EINVAL)),
         Kind::LumiFile => {
             // LumiFS 单次事务最多几块，会短写；循环到写完为止，
             // 用户态看到的仍然是一次完整的 write。
@@ -420,6 +451,9 @@ pub fn close(fd: usize) -> Result<(), i64> {
         Kind::PipeRead => pipe::close_read(f.id as usize),
         Kind::PipeWrite => pipe::close_write(f.id as usize),
         Kind::Dir => vfs::dir_close(f.id),
+        // socket：同步清掉 `net` 表（否则端口/连接会一直挂着）
+        Kind::SocketUdp => crate::net::close_udp(f.id as usize),
+        Kind::SocketTcp => crate::net::close_tcp(f.id as usize),
         _ => {}
     }
     Ok(())

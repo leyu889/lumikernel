@@ -45,6 +45,8 @@ PROGS = [
 BUSYBOX = os.path.join(HERE, "assets", "busybox")
 # M11 的跨系统微基准（build.py 里先构建好）
 BENCH = os.path.join(HERE, "..", "build", "bench.elf")
+# FAT 卷（M12）：由 tools/mkfat.py 造，用来给 kfat 驱动做端到端验证
+FATIMG = os.path.join(HERE, "..", "build", "fat.img")
 APPLETS = ["sh", "ls", "cat", "echo"]
 
 
@@ -95,6 +97,10 @@ def main():
         files += ["--file", guest + "=" + elf]
 
     extra = ["--text", "hello.txt=" + TEXT]
+    if os.path.isfile(FATIMG):
+        extra += ["--file", "fat.img=" + os.path.abspath(FATIMG)]
+    else:
+        print("[警告] 没有 build/fat.img，FAT 自检会跳过")
     if os.path.isfile(BENCH):
         extra += ["--file", "bin/bench=" + os.path.abspath(BENCH)]
     else:

@@ -75,3 +75,25 @@ mod tests {
         assert_eq!(of(1_000_000), 0);
     }
 }
+
+// ---- 网络（M12）----
+pub const ENOTSOCK: Errno = 88;
+pub const EDESTADDRREQ: Errno = 89;
+pub const EMSGSIZE: Errno = 90;
+pub const EPROTOTYPE: Errno = 91;
+pub const ENOPROTOOPT: Errno = 92;
+pub const EPROTONOSUPPORT: Errno = 93;
+pub const ESOCKTNOSUPPORT: Errno = 94;
+pub const EOPNOTSUPP: Errno = 95;
+pub const EAFNOSUPPORT: Errno = 97;
+pub const EADDRINUSE: Errno = 98;
+pub const EADDRNOTAVAIL: Errno = 99;
+pub const ENETDOWN: Errno = 100;
+pub const ENETUNREACH: Errno = 101;
+pub const ECONNABORTED: Errno = 103;
+pub const ECONNRESET: Errno = 104;
+pub const EISCONN: Errno = 106;
+pub const ENOTCONN: Errno = 107;
+pub const ESHUTDOWN: Errno = 108;
+pub const ETIMEDOUT: Errno = 110;
+pub const ECONNREFUSED: Errno = 111;

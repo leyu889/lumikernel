@@ -35,7 +35,8 @@ def check_s1(log):
         return SKIP, "没有日志"
     panics = len(re.findall(r"!!! 内核 panic !!!", log))
     fails = len(re.findall(r"^\[FAIL\]", log, re.M))
-    m = re.search(r"M11 self-test (\d+)/(\d+) passed", log)
+    # 里程碑号会随版本变，只认 "self-test N/M passed" 这个形态
+    m = re.search(r"M\d+ self-test (\d+)/(\d+) passed", log)
     if not m:
         return FAIL, "日志里没有自检汇总行"
     ok, total = int(m.group(1)), int(m.group(2))

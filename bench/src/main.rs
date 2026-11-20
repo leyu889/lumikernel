@@ -152,14 +152,28 @@ fn cstr_len(p: *const u8) -> usize {
 
 fn bench_getpid(n: u64) -> u64 {
     let t0 = tsc();
+    // min/max：平均值被"偶发 tick 打断"污染时看不出方向——
+    // min 是纯 syscall 成本，max 与 min 的差就是调度/中断开销。
+    let mut mn = u64::MAX;
+    let mut mx = 0u64;
     let mut acc = 0i64;
+    let mut prev = tsc();
     for _ in 0..n {
-        // 累加返回值，避免整个循环被优化掉
         acc = acc.wrapping_add(getpid());
+        let now = tsc();
+        let d = now - prev;
+        prev = now;
+        if d < mn {
+            mn = d;
+        }
+        if d > mx {
+            mx = d;
+        }
     }
-    let t1 = tsc();
+    emit(b"getpid_min", mn);
+    emit(b"getpid_max", mx);
     core::hint::black_box(acc);
-    (t1 - t0) / n
+    (tsc() - t0) / n
 }
 
 fn bench_write_null(path: *const u8, n: u64) -> u64 {
@@ -237,8 +251,13 @@ fn bench_mmap(n: u64) -> u64 {
 }
 
 fn bench_fork_wait(n: u64) -> u64 {
-    let t0 = tsc();
+    // 同时报 min/max：平均值被"偶发多等一个 tick"污染时看不出根因，
+    // min 代表真实开销，max 与 min 的差距就是调度延迟。
+    let mut mn = u64::MAX;
+    let mut mx = 0u64;
+    let mut total = 0u64;
     for _ in 0..n {
+        let t0 = tsc();
         let pid = fork();
         if pid == 0 {
             exit_group(0);
@@ -246,9 +265,18 @@ fn bench_fork_wait(n: u64) -> u64 {
         if pid > 0 {
             wait4(pid);
         }
+        let d = tsc() - t0;
+        total += d;
+        if d < mn {
+            mn = d;
+        }
+        if d > mx {
+            mx = d;
+        }
     }
-    let t1 = tsc();
-    (t1 - t0) / n
+    emit(b"fork_min", mn);
+    emit(b"fork_max", mx);
+    total / n
 }
 
 fn bench_pipe_rtt(n: u64) -> u64 {

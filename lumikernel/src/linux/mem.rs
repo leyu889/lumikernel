@@ -78,7 +78,7 @@ pub fn brk(addr: u64) -> i64 {
                 let mut back = from;
                 while back < va {
                     if let Ok(p) = paging::unmap_in_current(back) {
-                        frames::free_frame(p);
+                        frames::put_page(p);
                     }
                     back += PAGE;
                 }
@@ -88,7 +88,7 @@ pub fn brk(addr: u64) -> i64 {
         // SAFETY: 刚分配的独占帧，经直接映射区清零。
         unsafe { core::ptr::write_bytes(paging::phys_to_virt(phys) as *mut u8, 0, PAGE as usize) };
         if paging::map_in_current(va, phys, Flags::USER_RW).is_err() {
-            frames::free_frame(phys);
+            frames::put_page(phys);
             return cur as i64;
         }
         va += PAGE;
@@ -125,7 +125,7 @@ pub fn mmap(addr: u64, len: usize, prot: u32, flags: u32, fd: i64, off: u64) -> 
         let mut va = addr;
         while va < addr + bytes {
             if let Ok(p) = paging::unmap_in_current(va) {
-                frames::free_frame(p);
+                frames::put_page(p);
             }
             va += PAGE;
         }
@@ -145,6 +145,28 @@ pub fn mmap(addr: u64, len: usize, prot: u32, flags: u32, fd: i64, off: u64) -> 
         want
     };
 
+    // ---- 懒分配（M12）----
+    //
+    // 只登记一段 VMA，一页物理内存都不给。真正的分配发生在用户第一次
+    // 碰这段内存时的 #PF 里（`mm::fault::try_lazy`）。
+    //
+    // 为什么值得改：`mmap` 立刻分配的话，`mmap` + 只写头几十字节的模式
+    // （几乎每个分配器都这么干）会白白零化整段。M11 量出来一次
+    // 64 KiB 的 mmap+munmap 要 174 万周期，而 Linux 是 8426——差 200 倍
+    // 全是"提前把没用的页铺好"的代价。
+    //
+    // 表满或者地址上已经有映射时退回立即分配（老路径），保证不会因为
+    // 新机制而让原本能跑的程序变失败。
+    let can_lazy = flags & F::MAP_FIXED == 0
+        || paging::translate_in(paging::read_cr3(), base).is_none();
+    if can_lazy {
+        task::vma_remove(base, base + bytes);
+        if task::vma_add(base, base + bytes, prot) {
+            return base as i64;
+        }
+        kserialln!("[mmap] VMA 表满（{} 段），这一段退回立即分配", task::VMA_MAX);
+    }
+
     let f = prot_flags(prot);
     let mut va = base;
     while va < base + bytes {
@@ -161,7 +183,7 @@ pub fn mmap(addr: u64, len: usize, prot: u32, flags: u32, fd: i64, off: u64) -> 
                 let mut back = base;
                 while back < va {
                     if let Ok(p) = paging::unmap_in_current(back) {
-                        frames::free_frame(p);
+                        frames::put_page(p);
                     }
                     back += PAGE;
                 }
@@ -175,7 +197,7 @@ pub fn mmap(addr: u64, len: usize, prot: u32, flags: u32, fd: i64, off: u64) -> 
         // 让 mmap+munmap 一次 16 页要 174 万周期（M11 的 bench 量出来的）。
         // 检查本身保留在 `paging::frame_mapped_in`，由自检按需调用。
         if paging::map_in_current(va, phys, f).is_err() {
-            frames::free_frame(phys);
+            frames::put_page(phys);
             return E::err(E::ENOMEM);
         }
         va += PAGE;
@@ -201,11 +223,14 @@ pub fn munmap(addr: u64, len: usize) -> i64 {
         Some(v) => v & !(PAGE - 1),
         None => return E::err(E::EINVAL),
     };
+    task::vma_remove(addr, addr + bytes);
     let mut va = addr;
     while va < addr + bytes {
-        // 没映射的页直接跳过（POSIX 允许 munmap 一段里夹杂空洞）
+        // 没映射的页直接跳过（POSIX 允许 munmap 一段里夹杂空洞）。
+        // 懒分配之后"没映射"是常态，不是异常。
         if let Ok(phys) = paging::unmap_in_current(va) {
-            frames::free_frame(phys);
+            // 引用计数：fork 出来的共享页可能还有别的进程在用。
+            frames::put_page(phys);
         }
         va += PAGE;
     }

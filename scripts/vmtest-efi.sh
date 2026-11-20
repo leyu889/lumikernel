@@ -13,6 +13,29 @@ if [ -z "$VBM" ]; then
   else VBM="/d/Program Files/VBoxManage.exe"; fi
 fi
 VM="${LUMI_VM:-LumiKernelUEFI}"
+
+# LUMI_VM_FRESH=1：每次删掉重建。
+# 用于 VBox 的 UEFI NVRAM 启动项在 poweroff 后丢失（表现为下一轮从 PXE 启动）的场合——
+# 实测重建后第一轮总能启动，比猜 EFI 变量可靠。
+if [ "${LUMI_VM_FRESH:-0}" = "1" ]; then
+  "$VBM" unregistervm "$VM" --delete >/dev/null 2>&1 || true
+fi
+
+# 上一轮如果被超时打断，VM 会残留在 Running/Saved/stopping。
+# 这里先强制关掉并丢弃状态——否则本轮所有 VBoxManage 都会报 "already locked"。
+if "$VBM" showvminfo "$VM" --machinereadable >/dev/null 2>&1; then
+  state=$("$VBM" showvminfo "$VM" --machinereadable 2>/dev/null | sed -n 's/^VMState="\(.*\)"/\1/p')
+  if [ "$state" != "poweroff" ] && [ -n "$state" ]; then
+    "$VBM" controlvm "$VM" poweroff >/dev/null 2>&1
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      sleep 1
+      st=$("$VBM" showvminfo "$VM" --machinereadable 2>/dev/null | sed -n 's/^VMState="\(.*\)"/\1/p')
+      [ "$st" = "poweroff" ] || [ -z "$st" ] && break
+    done
+    [ "$st" = "saved" ] && "$VBM" discardstate "$VM" >/dev/null 2>&1
+  fi
+  "$VBM" discardstate "$VM" >/dev/null 2>&1 || true
+fi
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) ROOT="$(cygpath -m "$ROOT")" ;; esac
 MEDIA="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
@@ -33,7 +56,7 @@ if ! "$VBM" showvminfo "$VM" >/dev/null 2>&1; then
   "$VBM" createvm --name "$VM" --ostype Other_64 --register >/dev/null
   "$VBM" modifyvm "$VM" --memory 1024 --vram 16 --firmware efi \
       --boot1 disk --boot2 dvd --boot3 none --boot4 none \
-      --audio-driver none --nic1 none --usb off \
+      --audio-driver none --nic1 nat --nictype1 virtio --cableconnected1 on --macaddress1 525400123456 --usb off \
       --triple-fault-reset on --largepages off --nested-paging off \
       --uart1 0x3F8 4 --uartmode1 file "$SER" >/dev/null
 fi
@@ -57,6 +80,7 @@ fi
 echo "[vm] 存储控制器: $CTL"
 
 # 两个控制器都清一遍：上一次可能挂在 IDE 上，这次要挂 SATA（或反过来）。
+# 上一轮的 VDI 可能还挂着（VM 卡死时删不掉）：先用 VBox 自己的命令关掉并删除
 # 只清一个的话，旧介质还挂在另一条总线上，convertfromraw 出来的新 VDI 会报
 # "already attached to this virtual machine"。
 for c in IDE SATA; do
@@ -72,12 +96,13 @@ done
 # 两个 VM 共用同一个 .vdi 会在 attach 时报 "UUID 不匹配"（踩过）。
 mkvdi() {
   "$VBM" closemedium disk "$2" --delete >/dev/null 2>&1
-  rm -f "$2"
+  python -c "import os,sys; os.path.exists(sys.argv[1]) and os.remove(sys.argv[1])" "$2" 2>/dev/null || true
   "$VBM" convertfromraw "$1" "$2" --format VDI >/dev/null
 }
 
 attach_hdd() { # <port> <device> <raw>
-  local vdi="${3%.img}-efi.vdi"
+  # VDI 名带上 VM 名：卡死的旧 VM 会锁住同名介质（实测 10 分钟都不释放）
+  local vdi="${3%.img}-${VM}.vdi"
   if [ -f "$3" ]; then
     mkvdi "$3" "$vdi"
     "$VBM" storageattach "$VM" --storagectl "$CTL" --port "$1" --device "$2" \

@@ -5,4 +5,8 @@
 
 pub mod ahci;
 pub mod ata;
+pub mod e1000;
+pub mod nic;
+pub mod virtio;
+pub mod health;
 pub mod pci;

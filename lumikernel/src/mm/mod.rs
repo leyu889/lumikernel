@@ -25,6 +25,8 @@ pub const VMALLOC_BASE: u64 = 0xFFFF_A000_0000_0000;
 /// 内核堆默认大小。
 pub const HEAP_BYTES: usize = 4 << 20;
 
+pub mod cow;
+pub mod fault;
 pub mod frames;
 pub mod heap;
 pub mod paging;

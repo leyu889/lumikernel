@@ -261,7 +261,32 @@ pub fn double_frees() -> u64 {
     DOUBLE_FREE.load(Ordering::Relaxed)
 }
 
+/// 释放一个"页引用"。
+///
+/// 与 [`free_frame`] 的区别：这是 **COW 之后所有释放路径都应该走**的入口。
+/// 它先减引用计数，只有计数归零才真正把帧还给分配器。
+///
+/// 返回 `true` 表示这次调用真的释放了物理帧。
+///
+/// 为什么单独开一个函数而不是在 `free_frame` 里做：`free_frame` 还被
+/// 页表页（PML4/PD/PT，它们从不共享）和 DMA 缓冲用着，那些地方必须
+/// 无条件释放。让两者共用一个入口，等于给"页表页被误共享"留后门。
+pub fn put_page(phys: u64) -> bool {
+    if crate::mm::cow::decref(phys) {
+        free_frame(phys);
+        true
+    } else {
+        false
+    }
+}
+
 pub fn free_frame(phys: u64) {
+    // 清掉引用计数的残留。
+    //
+    // 不清的话，一个被释放又立刻被分配的页会带着上一轮的计数（甚至 COW 标记），
+    // 于是新页在第一写入时被误判成"别人的共享页"——行为上不崩，
+    // 但会多复制一次，而且让"引用数"这个诊断指标彻底失去意义。
+    crate::mm::cow::clear_all(phys);
     if !is_used(phys) {
         DOUBLE_FREE.fetch_add(1, Ordering::Relaxed);
     }
