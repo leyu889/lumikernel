@@ -37,6 +37,8 @@ INCLUDE_FILES = [
     "build.cmd",
     "run.cmd",
     "test.cmd",
+    # 一键推到 GitHub：重建快照 → 同步 → 有变更才提交 → 推送
+    "PUSH_GITHUB.cmd",
 ]
 INCLUDE_DIRS = [
     "lumikernel",
