@@ -33,6 +33,7 @@ INCLUDE_FILES = [
     "Cargo.lock",
     "linker.ld",
     "README.md",
+    "README.en.md",
     # Windows 上双击就能用的包装脚本（内部路径都是相对的）
     "build.cmd",
     "run.cmd",
