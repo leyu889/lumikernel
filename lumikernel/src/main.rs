@@ -3002,11 +3002,14 @@ pub extern "C" fn kmain(e820_addr: u32) -> ! {
             arch::smp::count()
         );
         kserialln!(
-            "M11 全部通过：{} 个核在线；故障注入 200 次全部优雅失败、fuzz 2.5 万次零 panic、\
-             加速长跑零漂移、性能数据见 docs/06-性能对比.md",
+            "M12 全部通过：{} 个核在线；fork COW 12µs、mmap 懒分配 806 周期、\
+             驱动失联可降级可恢复、W^X 审计 0 违规；性能数据见 docs/06-性能对比.md",
             arch::smp::count()
         );
-        kserialln!("这是第一个可发布版本：v1.2.0（M11）。30 天长跑与真机验证由 scripts/ 下的脚本执行");
+        kserialln!(
+            "发布版本 v1.3.0（M12）。未完成项见 README 的「诚实边界」：网络栈实机 ping 未过、\
+             SMP 真并行未启用、ext2 只读"
+        );
     } else {
         kprintln!("[WARN] some checks failed, see [FAIL] lines above");
     }
